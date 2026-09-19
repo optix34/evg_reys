@@ -1,1 +1,505 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PILOT Extension: Пассажирские перевозки</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background: #f8fafc;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #0f172a;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 12px;
+            margin-bottom: 24px;
+            font-size: 28px;
+        }
+        h2 {
+            color: #1e293b;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            font-size: 22px;
+            border-left: 4px solid #2563eb;
+            padding-left: 12px;
+        }
+        h3 {
+            color: #334155;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        p {
+            margin-bottom: 16px;
+        }
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            color: #dc2626;
+        }
+        pre {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border-left: 4px solid #2563eb;
+            margin-bottom: 16px;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: #1e293b;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 16px 0;
+            background: #ffffff;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        .note {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .note strong {
+            color: #92400e;
+        }
+        .success {
+            background: #dcfce7;
+            border-left: 4px solid #059669;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .success strong {
+            color: #065f46;
+        }
+        .warning {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 16px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning strong {
+            color: #991b1b;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .feature-item {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #2563eb;
+        }
+        .feature-item strong {
+            color: #1e293b;
+        }
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .header-badge {
+            display: inline-block;
+            background: #2563eb;
+            color: #ffffff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 12px;
+            vertical-align: middle;
+        }
+        .version-info {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            🚌 PILOT Extension: Пассажирские перевозки
+            <span class="header-badge">v1.0.0</span>
+        </h1>
+        <div class="version-info">
+            Расширение для управления пассажирскими маршрутами | Аналог системы «Трансфлоу» | PILOT Extensions
+        </div>
 
+        <div class="success">
+            <strong>✅ Статус:</strong> Рабочий MVP. Готов к деплою на Cloudflare / GitHub Pages / AWS EC2.
+        </div>
+
+        <h2>📋 Описание</h2>
+        <p>
+            Расширение <strong>passenger_transit</strong> интегрируется в интерфейс PILOT и предоставляет функционал 
+            диспетчерской системы для управления пассажирскими перевозками. Модуль использует нативную карту PILOT 
+            (Leaflet), деревья объектов и API мониторинга, создавая бесшовный опыт работы в едином интерфейсе.
+        </p>
+
+        <h2>✨ Возможности</h2>
+        <div class="feature-list">
+            <div class="feature-item">
+                <strong>🗺️ Редактор маршрутов</strong><br>
+                Рисование полилинии маршрута кликом по карте с поддержкой прямого и обратного направления
+            </div>
+            <div class="feature-item">
+                <strong>🚏 Управление остановками</strong><br>
+                Добавление остановок кликом по карте с автоматической нумерацией
+            </div>
+            <div class="feature-item">
+                <strong>🚌 Привязка ТС</strong><br>
+                Привязка транспортных средств из PILOT к маршрутам через удобный интерфейс
+            </div>
+            <div class="feature-item">
+                <strong>📍 Отображение на карте</strong><br>
+                Маркеры ТС в реальном времени с номерами и статусами
+            </div>
+            <div class="feature-item">
+                <strong>📊 Мнемосхема маршрута</strong><br>
+                Нитка графика с прямым/обратным направлением и подсветкой остановок
+            </div>
+            <div class="feature-item">
+                <strong> Таймлайн рейсов</strong><br>
+                Графики распределения рейсов по времени суток (Highcharts)
+            </div>
+            <div class="feature-item">
+                <strong>🛤️ Треки ТС</strong><br>
+                Просмотр трека с выделением прямого и обратного направления
+            </div>
+            <div class="feature-item">
+                <strong>🔢 Подсчёт рейсов</strong><br>
+                Автоматический подсчёт выполненных рейсов по каждому ТС
+            </div>
+        </div>
+
+        <h2>🚀 Установка</h2>
+
+        <h3>Вариант 1: Cloudflare Pages (рекомендуется для статики)</h3>
+        <ol>
+            <li>Откройте <a href="https://dash.cloudflare.com/">Cloudflare Dashboard</a> → Workers &amp; Pages</li>
+            <li>Создайте приложение → Pages → Upload assets</li>
+            <li>Загрузите ZIP-архив со всеми файлами расширения</li>
+            <li>Получите URL: <code>https://passenger-transit.YOUR.workers.dev/</code></li>
+            <li>В PILOT: <strong>Администрирование → Приложения → Добавить</strong>
+                <ul>
+                    <li><strong>Имя:</strong> <code>passenger_transit</code> (строго snake_case!)</li>
+                    <li><strong>URL:</strong> <code>https://passenger-transit.YOUR.workers.dev/</code></li>
+                </ul>
+            </li>
+            <li>Сохраните, включите для пользователя, перезагрузите PILOT (F5)</li>
+        </ol>
+
+        <h3>Вариант 2: AWS EC2 + Nginx + PHP-FPM (для бэкенда)</h3>
+        <ol>
+            <li>Установите Nginx + PHP-FPM:
+                <pre><code>sudo dnf install -y nginx php-fpm php-pdo php-sqlite3</code></pre>
+            </li>
+            <li>Разместите файлы: <code>/var/www/pilot_extensions/passenger_transit/</code></li>
+            <li>Настройте Nginx (см. <code>DEPLOY.md</code> в репозитории PILOT Extensions)</li>
+            <li>В PILOT зарегистрируйте: <code>https://ext.example.com/passenger_transit/</code></li>
+        </ol>
+
+        <h3>Вариант 3: GitHub Pages (только статика)</h3>
+        <ol>
+            <li>Создайте репозиторий на GitHub</li>
+            <li>Загрузите файлы в корень</li>
+            <li>Settings → Pages → Source: main branch</li>
+            <li>URL: <code>https://USERNAME.github.io/REPOSITORY/</code></li>
+            <li>В PILOT: зарегистрируйте этот URL</li>
+        </ol>
+
+        <div class="note">
+            <strong>⚠️ Важно:</strong> GitHub Pages не поддерживает PHP — бэкенд не будет работать. 
+            Для полноценной функциональности используйте Cloudflare Workers или AWS EC2.
+        </div>
+
+        <h2>📖 Использование</h2>
+
+        <h3>Создание маршрута</h3>
+        <ol>
+            <li>В левой панели нажмите <strong>«Добавить маршрут»</strong></li>
+            <li>Введите название маршрута</li>
+            <li>Выберите маршрут в дереве</li>
+            <li>Нажмите <strong>«Рисовать маршрут»</strong> (прямое или обратное направление)</li>
+            <li>Кликайте по карте для добавления точек маршрута</li>
+            <li>Правый клик или <strong>«Завершить»</strong> — сохранить полилинию</li>
+        </ol>
+
+        <h3>Добавление остановок</h3>
+        <ol>
+            <li>Выберите маршрут в дереве слева</li>
+            <li>Нажмите кнопку <strong>«Редактировать»</strong> (режим остановок)</li>
+            <li>Кликните по карте в месте остановки</li>
+            <li>Введите название остановки</li>
+        </ol>
+
+        <h3>Привязка ТС</h3>
+        <ol>
+            <li>Выберите маршрут в дереве</li>
+            <li>Нажмите <strong>«Привязать ТС»</strong></li>
+            <li>В открывшемся окне выберите ТС из списка (загружается из PILOT)</li>
+            <li>Нажмите <strong>«Привязать»</strong></li>
+        </ol>
+
+        <h3>Просмотр трека ТС</h3>
+        <ol>
+            <li>Кликните по маркеру ТС на карте</li>
+            <li>Система загрузит трек из PILOT API (<code>/ax/rep.php</code>)</li>
+            <li>Отобразится трек с выделением прямого/обратного направления</li>
+            <li>Покажется количество выполненных рейсов</li>
+        </ol>
+
+        <h3>Мнемосхема маршрута</h3>
+        <p>
+            Правая панель отображает нитку графика маршрута. Остановки пронумерованы. 
+            Клик по остановке на карте подсвечивает её в мнемосхеме. 
+            Переключайтесь между прямым и обратным направлением кнопками вверху панели.
+        </p>
+
+        <h2>🗄️ Структура базы данных (SQLite)</h2>
+        <table>
+            <tr>
+                <th>Таблица</th>
+                <th>Назначение</th>
+                <th>Ключевые поля</th>
+            </tr>
+            <tr>
+                <td><code>routes</code></td>
+                <td>Список маршрутов</td>
+                <td>id, name, created_at</td>
+            </tr>
+            <tr>
+                <td><code>stops</code></td>
+                <td>Остановки маршрута</td>
+                <td>id, route_id, name, lat, lon, order_index</td>
+            </tr>
+            <tr>
+                <td><code>route_points</code></td>
+                <td>Точки полилинии маршрута</td>
+                <td>id, route_id, direction, lat, lon, order_index</td>
+            </tr>
+            <tr>
+                <td><code>route_vehicles</code></td>
+                <td>Привязка ТС к маршрутам</td>
+                <td>id, route_id, vehicle_id, vehicle_number</td>
+            </tr>
+        </table>
+
+        <div class="note">
+            <strong>💡 Примечание:</strong> База данных SQLite создается автоматически при первом запуске API. 
+            Файл <code>data.db</code> размещается в папке <code>backend/</code>.
+        </div>
+
+        <h2>🔌 API эндпоинты</h2>
+        <p>Все запросы идут через прокси PILOT: <code>/store/passenger_transit/backend/api.php</code></p>
+        <table>
+            <tr>
+                <th>Метод</th>
+                <th>Action</th>
+                <th>Описание</th>
+                <th>Параметры</th>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td><code>get_routes</code></td>
+                <td>Список маршрутов</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td><code>create_route</code></td>
+                <td>Создать маршрут</td>
+                <td><code>name</code></td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td><code>add_stop</code></td>
+                <td>Добавить остановку</td>
+                <td><code>route_id, stop</code></td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td><code>save_route_points</code></td>
+                <td>Сохранить точки полилинии</td>
+                <td><code>route_id, direction, points</code></td>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td><code>get_route_vehicles</code></td>
+                <td>ТС маршрута</td>
+                <td><code>route_id</code></td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td><code>bind_vehicle</code></td>
+                <td>Привязать ТС</td>
+                <td><code>route_id, vehicle_id, vehicle_number</code></td>
+            </tr>
+            <tr>
+                <td>POST</td>
+                <td><code>unbind_vehicle</code></td>
+                <td>Отвязать ТС</td>
+                <td><code>route_id, vehicle_id</code></td>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td><code>get_vehicle_track</code></td>
+                <td>Трек ТС</td>
+                <td><code>vehicle_id, route_id, date</code></td>
+            </tr>
+            <tr>
+                <td>GET</td>
+                <td><code>get_timeline</code></td>
+                <td>Таймлайн рейсов</td>
+                <td><code>route_id, date</code></td>
+            </tr>
+        </table>
+
+        <div class="note">
+            <strong>🔗 Интеграция с PILOT API:</strong> Для получения реальных координат ТС и треков используются:
+            <ul>
+                <li><code>/ax/tree.php</code> — список ТС с позициями</li>
+                <li><code>/ax/rep.php?cmd=get_trips</code> — треки и рейсы</li>
+            </ul>
+            Все запросы к PILOT API идут с того же домена, CORS не возникает.
+        </div>
+
+        <h2>⚙️ Требования</h2>
+        <ul>
+            <li><strong>PILOT</strong> с поддержкой расширений</li>
+            <li><strong>Ext JS 7.7+</strong> (загружен PILOT)</li>
+            <li><strong>Leaflet</strong> (используется PILOT MapContainer)</li>
+            <li><strong>Highcharts</strong> (опционально, для таймлайна)</li>
+            <li><strong>PHP 7.4+</strong> с PDO SQLite (для бэкенда)</li>
+        </ul>
+
+        <h2>🔧 Технические детали</h2>
+        <p>Расширение следует строгому контракту <code>AI_SPECS.md</code> репозитория PILOT Extensions:</p>
+        <ul>
+            <li>Не является standalone SPA</li>
+            <li>Точка входа — <code>Module.js</code></li>
+            <li>Имя расширения: <code>passenger_transit</code> (snake_case, без дефисов)</li>
+            <li>Класс: <code>Store.passenger_transit.Module</code></li>
+            <li>Интеграция через <code>window.skeleton</code></li>
+            <li>Карта — Leaflet через <code>mapContainer.map</code></li>
+            <li>Все URL проксируются через <code>/store/passenger_transit/...</code></li>
+        </ul>
+
+        <h2>📁 Структура файлов</h2>
+        <pre><code>passenger_transit/
+├── index.html              # Пустой (для Cloudflare)
+├── Module.js               # Точка входа
+├── style.css               # Стили
+├── doc/
+│   └── index.html          # Этот файл (документация)
+└── backend/
+    ├── config.php          # Конфигурация БД
+    ├── api.php             # Роутер API
+    ├── routes.php          # CRUD маршрутов
+    ├── stops.php           # CRUD остановок
+    ├── route_points.php    # CRUD точек маршрута
+    ├── vehicles.php        # Привязка ТС
+    ├── trips.php           # Данные о рейсах
+    └── data.db             # SQLite БД (создается автоматически)</code></pre>
+
+        <h2>🐛 Troubleshooting</h2>
+
+        <h3>Модуль не появляется в PILOT</h3>
+        <ul>
+            <li>Проверьте, что <code>Module.js</code> открывается в браузере по прямому URL</li>
+            <li>Убедитесь, что имя расширения — <code>passenger_transit</code> (snake_case, без дефисов!)</li>
+            <li>Проверьте консоль браузера на наличие ошибок</li>
+            <li>Перезагрузите PILOT (F5)</li>
+        </ul>
+
+        <h3>CSS не загружается</h3>
+        <ul>
+            <li>Проверьте, что <code>style.css</code> открывается по прямому URL</li>
+            <li>Убедитесь, что путь в <code>Module.js</code> корректный</li>
+        </ul>
+
+        <h3>Бэкенд не работает</h3>
+        <ul>
+            <li>Проверьте права на запись в папку <code>backend/</code> (для создания <code>data.db</code>)</li>
+            <li>Убедитесь, что PHP-FPM запущен и настроен</li>
+            <li>Проверьте логи Nginx: <code>/var/log/nginx/error.log</code></li>
+        </ul>
+
+        <h3>Карта не отображается</h3>
+        <ul>
+            <li>Убедитесь, что вы находитесь в разделе Online или History PILOT</li>
+            <li>Проверьте, что <code>getActiveTabMapContainer()</code> доступен</li>
+            <li>Откройте консоль браузера и проверьте ошибки Leaflet</li>
+        </ul>
+
+        <h2> Лицензия</h2>
+        <p>
+            Apache License 2.0. См. <code>LICENSE</code> в репозитории PILOT Extensions.
+        </p>
+
+        <h2>🔗 Полезные ссылки</h2>
+        <ul>
+            <li><a href="https://github.com/pilot-telematics/pilot_extensions">Репозиторий PILOT Extensions</a></li>
+            <li><a href="https://docs.pilot-gps.com/">Документация PILOT</a></li>
+            <li><a href="https://leafletjs.com/">Leaflet Documentation</a></li>
+            <li><a href="https://www.highcharts.com/">Highcharts Documentation</a></li>
+        </ul>
+
+        <div class="success">
+            <strong>✅ Готово!</strong> Расширение установлено и готово к использованию. 
+            Откройте PILOT, перейдите во вкладку <strong>«Рейсы»</strong> в левой навигации и начните работу.
+        </div>
+    </div>
+</body>
+</html>
