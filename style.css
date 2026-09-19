@@ -1,0 +1,197 @@
+/* passenger_transit/style.css */
+/* PILOT Extension: Пассажирские перевозки */
+/* Strict compliance with AI_SPECS.md Rule 8.3 */
+
+/* ==================== HEADER BUTTON ==================== */
+/* Обязательные стили для кнопки в хедере PILOT (AI_SPECS Rule 5) */
+.passenger_transit-header-btn {
+    background: #2563eb !important; /* blue-600 */
+    border-color: #1d4ed8 !important; /* blue-700 */
+}
+.passenger_transit-header-btn .x-btn-inner,
+.passenger_transit-header-btn .x-btn-icon-el {
+    color: #ffffff !important;
+}
+.passenger_transit-header-btn:hover {
+    background: #1d4ed8 !important; /* blue-700 */
+}
+
+/* ==================== MAIN PANEL & MAP PLACEHOLDER ==================== */
+.pt-main-panel {
+    background: #f8fafc; /* slate-50 */
+}
+.pt-map-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e8f0; /* slate-200 */
+}
+.pt-map-hint {
+    color: #64748b; /* slate-500 */
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ==================== MAP MARKERS: STOPS ==================== */
+.pt-stop-marker {
+    background: transparent;
+    border: none;
+}
+.pt-stop-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #2563eb; /* blue-600 */
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 13px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff;
+}
+
+/* ==================== MAP MARKERS: VEHICLES ==================== */
+.pt-vehicle-marker {
+    background: transparent;
+    border: none;
+}
+.pt-vehicle-icon {
+    width: 32px;
+    height: 32px;
+    background: #059669; /* emerald-600 */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 16px;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.pt-vehicle-number {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b; /* slate-800 */
+    color: #ffffff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== MEMO PANEL (НИТКА ГРАФИКА) ==================== */
+.pt-memo-panel {
+    background: #ffffff;
+}
+.pt-memo-route {
+    padding: 12px;
+}
+.pt-memo-header {
+    font-size: 16px;
+    font-weight: bold;
+    color: #1e293b; /* slate-800 */
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8f0; /* slate-200 */
+    margin-bottom: 12px;
+}
+.pt-memo-stops {
+    position: relative;
+    padding-left: 20px;
+}
+.pt-memo-stops::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #cbd5e1; /* slate-300 */
+}
+.pt-memo-stop {
+    position: relative;
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.2s;
+}
+.pt-memo-stop:hover {
+    background: #f1f5f9; /* slate-100 */
+}
+.pt-memo-stop-highlight {
+    background: #fef3c7 !important; /* amber-100 */
+    border-left: 3px solid #f59e0b; /* amber-500 */
+}
+.pt-stop-forward {
+    border-left: 3px solid #2563eb; /* blue-600 */
+}
+.pt-stop-backward {
+    border-left: 3px solid #dc2626; /* red-600 */
+}
+.pt-memo-stop-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #2563eb; /* blue-600 */
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.pt-stop-backward .pt-memo-stop-number {
+    background: #dc2626; /* red-600 */
+}
+.pt-memo-stop-name {
+    font-size: 13px;
+    color: #334155; /* slate-700 */
+    flex: 1;
+}
+.pt-memo-empty {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8; /* slate-400 */
+    font-style: italic;
+}
+
+/* ==================== TIMELINE PANEL ==================== */
+.pt-timeline-panel {
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0; /* slate-200 */
+}
+
+/* ==================== ROUTE TREE ==================== */
+.pt-route-tree .x-tree-node-text {
+    font-size: 13px;
+}
+.pt-route-tree .x-grid-cell-inner {
+    padding: 4px 8px;
+}
+
+/* ==================== EDITING TOOLBAR ==================== */
+/* Яркий цвет для индикации режима редактирования */
+.pt-edit-toolbar {
+    background: #fef3c7 !important; /* amber-100 */
+    border-bottom: 2px solid #f59e0b !important; /* amber-500 */
+}
+
+/* ==================== VEHICLE BINDING DIALOG ==================== */
+.pt-vehicle-dialog .x-grid-row-over {
+    background: #f1f5f9; /* slate-100 */
+}
+.pt-vehicle-online {
+    background-color: #dcfce7 !important; /* green-100 */
+}
+.pt-vehicle-offline {
+    background-color: #fee2e2 !important; /* red-100 */
+}
