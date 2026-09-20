@@ -1,6 +1,6 @@
 // passenger_transit/Module.js
 // PILOT Extension: Пассажирские перевозки
-// Backend: Node.js на 37.139.99.253:3001
+// Backend: Node.js + SQLite через Ngrok
 // Frontend: GitHub Pages
 
 Ext.define('Store.passenger_transit.Module', {
@@ -70,7 +70,7 @@ Ext.define('Store.passenger_transit.Module', {
             document.head.appendChild(link);
         }
 
-        // СОЗДАЕМ ДЕРЕВО И СОХРАНЯЕМ ССЫЛКУ
+        // СОЗДАЕМ ДЕРЕВО МАРШРУТОВ И СОХРАНЯЕМ ССЫЛКУ
         me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', {
             module: me
         });
@@ -87,7 +87,7 @@ Ext.define('Store.passenger_transit.Module', {
             ]
         });
 
-        // Create main panel (ПРОЗРАЧНЫЙ - карта PILOT видна сквозь него)
+        // Create main panel (с картой PILOT вместо заглушки!)
         var mainPanel = Ext.create('Store.passenger_transit.view.MainPanel', {
             module: me
         });
@@ -128,8 +128,8 @@ Ext.define('Store.passenger_transit.Module', {
         var me = this;
         Ext.Ajax.request({
             url: '/ax/tree.php',
-            params: {
-                vehs: 1,
+            params: { 
+                vehs: 1, 
                 state: 1,
                 lat: 1,
                 lon: 1,
@@ -573,9 +573,9 @@ Ext.define('Store.passenger_transit.Module', {
                         xtype: 'grid',
                         store: pilotStore,
                         columns: [
-                            {
-                                text: l('ТС'),
-                                dataIndex: 'number',
+                            { 
+                                text: l('ТС'), 
+                                dataIndex: 'number', 
                                 flex: 1,
                                 renderer: function (v, m, r) {
                                     var online = r.get('online');
@@ -660,10 +660,22 @@ Ext.define('Store.passenger_transit.Module', {
     // ==================== MAP FUNCTIONS ====================
 
     getPilotMap: function () {
+        // Пытаемся получить карту из активного контейнера PILOT
         if (window.getActiveTabMapContainer) {
-            return getActiveTabMapContainer();
+            var mc = getActiveTabMapContainer();
+            if (mc && mc.map) return mc;
         }
-        return window.mapContainer || null;
+        // Fallback: глобальный mapContainer
+        if (window.mapContainer && window.mapContainer.map) {
+            return window.mapContainer;
+        }
+        // Fallback: ищем Leaflet-карту в DOM
+        var mapEl = document.querySelector('.leaflet-container');
+        if (mapEl && mapEl._leaflet_id) {
+            var leafletMap = L.map(mapEl._leaflet_id);
+            if (leafletMap) return { map: leafletMap };
+        }
+        return null;
     },
 
     drawRoute: function (routeId, forwardPoints, backwardPoints) {
@@ -701,8 +713,9 @@ Ext.define('Store.passenger_transit.Module', {
             marker.bindPopup('<b>' + Ext.String.htmlEncode(stop.name) + '</b><br/>' + l('Остановка') + ' #' + (index + 1));
             marker.on('click', function () {
                 if (me.state.selectedRoute) {
-                    if (me.memoPanel) {
-                        me.memoPanel.highlightStop(index);
+                    var mainPanel = me.getMainPanel();
+                    if (mainPanel && mainPanel.memoPanel) {
+                        mainPanel.memoPanel.highlightStop(index);
                     }
                 }
             });
@@ -811,11 +824,12 @@ Ext.define('Store.passenger_transit.Module', {
         });
         me.drawVehicles(routeId, enrichedVehicles);
 
-        if (me.memoPanel) {
-            me.memoPanel.loadRoute(route);
+        var mainPanel = me.getMainPanel();
+        if (mainPanel && mainPanel.memoPanel) {
+            mainPanel.memoPanel.loadRoute(route);
         }
-        if (me.timelinePanel) {
-            me.timelinePanel.renderChart(me.getTimeline(routeId));
+        if (mainPanel && mainPanel.timelinePanel) {
+            mainPanel.timelinePanel.renderChart(me.getTimeline(routeId));
         }
     },
 
@@ -998,10 +1012,10 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
                         success: function (resp) {
                             var data = Ext.decode(resp.responseText);
                             if (data.success && me.module) {
-                                Ext.toast({
-                                    html: l('Маршрут "') + routeName + l('" создан'),
-                                    align: 't',
-                                    timeout: 3000
+                                Ext.toast({ 
+                                    html: l('Маршрут "') + routeName + l('" создан'), 
+                                    align: 't', 
+                                    timeout: 3000 
                                 });
                                 me.module.loadRoutes();
                             } else {
@@ -1042,54 +1056,73 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
 
 
 // ==================== VIEW: MainPanel ====================
-// ПРОЗРАЧНЫЙ КОНТЕЙНЕР: карта PILOT видна сквозь центральный регион.
-// Мнемосхема и таймлайн расположены поверх карты справа и снизу.
+// ИСПРАВЛЕНО: Заглушка заменена на Pilot.MapPanel
 Ext.define('Store.passenger_transit.view.MainPanel', {
     extend: 'Ext.panel.Panel',
     layout: 'border',
     cls: 'pt-main-panel',
-    border: false,
-    bodyBorder: false,
-    bodyStyle: 'background:transparent !important;',
-    style: 'background:transparent !important;',
 
     initComponent: function () {
         var me = this;
-        var module = me.module;
 
-        // Создаём мнемосхему и таймлайн, сохраняя ссылки в модуле
-        module.memoPanel = Ext.create('Store.passenger_transit.view.RouteMemoPanel', {
-            region: 'east',
-            module: module,
-            width: 320,
-            split: true,
-            collapsible: true,
-            collapsed: false,
-            title: l('Мнемосхема'),
-            style: 'pointer-events:auto;'
-        });
-
-        module.timelinePanel = Ext.create('Store.passenger_transit.view.TimelinePanel', {
-            region: 'south',
-            module: module,
-            height: 180,
-            split: true,
-            title: l('График рейсов'),
-            style: 'pointer-events:auto;'
-        });
+        // Создаём карту PILOT вместо заглушки
+        // Pilot.MapPanel — встроенный компонент карты в PILOT GPS
+        var mapPanel;
+        try {
+            mapPanel = Ext.create('Pilot.MapPanel', {
+                region: 'center',
+                itemId: 'pilotMap',
+                border: false
+            });
+        } catch (e) {
+            // Fallback: если Pilot.MapPanel недоступен, используем xtype
+            try {
+                mapPanel = {
+                    region: 'center',
+                    xtype: 'pilot-mappanel',
+                    itemId: 'pilotMap',
+                    border: false
+                };
+            } catch (e2) {
+                // Последний fallback: пустая панель с подсказкой
+                mapPanel = {
+                    region: 'center',
+                    xtype: 'panel',
+                    itemId: 'pilotMap',
+                    cls: 'pt-map-placeholder',
+                    html: '<div class="pt-map-hint">' + l('Карта PILOT загружается...') + '</div>',
+                    listeners: {
+                        afterrender: function(panel) {
+                            // Пытаемся найти карту после рендеринга
+                            setTimeout(function() {
+                                var mc = window.getActiveTabMapContainer ? getActiveTabMapContainer() : window.mapContainer;
+                                if (mc && mc.map) {
+                                    panel.update('<div class="pt-map-hint">' + l('Карта активна. Выберите маршрут слева.') + '</div>');
+                                }
+                            }, 1000);
+                        }
+                    }
+                };
+            }
+        }
 
         me.items = [
-            {
-                // ЦЕНТРАЛЬНЫЙ РЕГИОН: полностью прозрачный, клики проходят сквозь него к карте PILOT
-                region: 'center',
-                xtype: 'container',
-                cls: 'pt-map-transparent-center',
-                border: false,
-                style: 'background:transparent !important; pointer-events:none;',
-                html: ''
-            },
-            module.memoPanel,
-            module.timelinePanel
+            mapPanel,
+            Ext.create('Store.passenger_transit.view.RouteMemoPanel', {
+                region: 'east',
+                module: me.module,
+                width: 320,
+                split: true,
+                collapsible: true,
+                title: l('Мнемосхема')
+            }),
+            Ext.create('Store.passenger_transit.view.TimelinePanel', {
+                region: 'south',
+                module: me.module,
+                height: 180,
+                split: true,
+                title: l('График рейсов')
+            })
         ];
         me.callParent(arguments);
     }
