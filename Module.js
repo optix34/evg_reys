@@ -8,7 +8,7 @@ Ext.define('Store.passenger_transit.Module', {
     extensionName: 'passenger_transit',
 
     // URL Node.js бэкенда
-    backendBaseUrl: 'https://pillow-extremely-cakes-conducted.trycloudflare.com',
+    backendBaseUrl: 'https://administrative-removable-middle-vinyl.trycloudflare.com',
 
     getBackendUrl: function(action) {
         return this.backendBaseUrl + '/api/' + action;
