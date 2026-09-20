@@ -8,7 +8,7 @@ Ext.define('Store.passenger_transit.Module', {
     extensionName: 'passenger_transit',
 
     // URL Node.js бэкенда
-    backendBaseUrl: 'https://promised-husband-quickly-democrats.trycloudflare.com',
+    backendBaseUrl: 'https://saggy-return-aide.ngrok-free.dev',
 
     getBackendUrl: function(action) {
         return this.backendBaseUrl + '/api/' + action;
