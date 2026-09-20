@@ -8,7 +8,7 @@ Ext.define('Store.passenger_transit.Module', {
     extensionName: 'passenger_transit',
 
     // URL Node.js бэкенда
-    backendBaseUrl: 'http://37.139.99.253:3001',
+    backendBaseUrl: ' https://allowed-face-transparency-grew.trycloudflare.com',
 
     getBackendUrl: function(action) {
         return this.backendBaseUrl + '/api/' + action;
