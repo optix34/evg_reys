@@ -36,10 +36,7 @@ Ext.define('Store.passenger_transit.Module', {
         pilotVehicles: [],
         routeEditMode: false,
         editDirection: 'forward',
-        floatingPanels: {
-            memo: null,
-            timeline: null
-        }
+        isTabActive: false  // Флаг активности вкладки
     },
 
     getModuleBaseUrl: function () {
@@ -91,12 +88,14 @@ Ext.define('Store.passenger_transit.Module', {
             ]
         });
 
-        // НЕ создаем MainPanel - карта PILOT должна быть видна полностью
+        // ВАЖНО: НЕ устанавливаем map_frame, чтобы карта PILOT оставалась видимой
+        // со всеми элементами управления (навигация, линейка, слои и т.д.)
         me.navTab.map_frame = null;
 
         // Integrate with PILOT skeleton
         if (window.skeleton && skeleton.navigation && skeleton.mapframe) {
             skeleton.navigation.add(me.navTab);
+            // НЕ добавляем MainPanel в mapframe - карта PILOT остается видимой
 
             // Add header button
             if (skeleton.header && skeleton.header.insert) {
@@ -112,9 +111,19 @@ Ext.define('Store.passenger_transit.Module', {
                 });
             }
 
-            // Добавляем обработчик переключения вкладок
+            // ====================================================================
+            // ОБРАБОТЧИК ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК
+            // При переключении на другую вкладку - скрываем плавающие панели
+            // При возврате на вкладку "Рейсы" - показываем их обратно
+            // ====================================================================
             if (skeleton.navigation.on) {
-                skeleton.navigation.on('tabchange', me.onTabChange, me);
+                skeleton.navigation.on('tabchange', function(tabPanel, newTab) {
+                    if (newTab === me.navTab) {
+                        me.onTabActivated();
+                    } else {
+                        me.onTabDeactivated();
+                    }
+                });
             }
 
             // Load data
@@ -124,54 +133,59 @@ Ext.define('Store.passenger_transit.Module', {
             // Создаем плавающие панели после инициализации
             setTimeout(function() {
                 me.createFloatingPanels();
+                // Если вкладка активна сразу при старте - показываем панели
+                if (skeleton.navigation.getActiveTab && skeleton.navigation.getActiveTab() === me.navTab) {
+                    me.onTabActivated();
+                }
             }, 500);
         } else {
             Ext.log('passenger_transit: skeleton not found');
         }
     },
 
-    // ==================== TAB SWITCHING ====================
+    // ==================== УПРАВЛЕНИЕ ВИДИМОСТЬЮ ПАНЕЛЕЙ ====================
 
-    onTabChange: function(tabPanel, newTab) {
+    onTabActivated: function() {
         var me = this;
+        me.state.isTabActive = true;
+        me.showFloatingPanels();
+    },
 
-        // Проверяем, активна ли наша вкладка
-        if (newTab === me.navTab) {
-            // Показываем плавающие панели
-            me.showFloatingPanels();
-        } else {
-            // Скрываем плавающие панели
-            me.hideFloatingPanels();
-        }
+    onTabDeactivated: function() {
+        var me = this;
+        me.state.isTabActive = false;
+        me.hideFloatingPanels();
     },
 
     showFloatingPanels: function() {
         var me = this;
-        if (me.state.floatingPanels.memo) {
-            me.state.floatingPanels.memo.show();
+        if (me.memoWindow && !me.memoWindow.isVisible()) {
+            me.memoWindow.show();
         }
-        if (me.state.floatingPanels.timeline) {
-            me.state.floatingPanels.timeline.show();
+        if (me.timelineWindow && !me.timelineWindow.isVisible()) {
+            me.timelineWindow.show();
         }
     },
 
     hideFloatingPanels: function() {
         var me = this;
-        if (me.state.floatingPanels.memo) {
-            me.state.floatingPanels.memo.hide();
+        if (me.memoWindow && me.memoWindow.isVisible()) {
+            me.memoWindow.hide();
         }
-        if (me.state.floatingPanels.timeline) {
-            me.state.floatingPanels.timeline.hide();
+        if (me.timelineWindow && me.timelineWindow.isVisible()) {
+            me.timelineWindow.hide();
         }
     },
-
-    // ==================== FLOATING PANELS ====================
 
     createFloatingPanels: function() {
         var me = this;
 
-        // Создаем мнемосхему как плавающую панель
-        me.state.floatingPanels.memo = Ext.create('Ext.window.Window', {
+        // СОЗДАЕМ МНЕМОСХЕМУ как плавающее окно
+        me.memoPanel = Ext.create('Store.passenger_transit.view.RouteMemoPanel', {
+            module: me
+        });
+
+        me.memoWindow = Ext.create('Ext.window.Window', {
             title: l('Мнемосхема'),
             width: 320,
             height: 500,
@@ -179,21 +193,24 @@ Ext.define('Store.passenger_transit.Module', {
             y: 100,
             collapsible: true,
             collapseDirection: 'right',
-            closeAction: 'hide',
+            closeAction: 'hide',  // При закрытии - скрывать, а не уничтожать
             layout: 'fit',
             cls: 'pt-floating-memo-panel',
-            items: [Ext.create('Store.passenger_transit.view.RouteMemoPanel', {
-                module: me
-            })],
+            items: [me.memoPanel],
             listeners: {
-                show: function(win) {
-                    me.memoPanel = win.down('panel');
+                beforeclose: function(win) {
+                    win.hide();
+                    return false;  // Предотвращаем уничтожение окна
                 }
             }
         });
 
-        // Создаем таймлайн как плавающую панель
-        me.state.floatingPanels.timeline = Ext.create('Ext.window.Window', {
+        // СОЗДАЕМ ГРАФИК РЕЙСОВ как плавающее окно
+        me.timelinePanel = Ext.create('Store.passenger_transit.view.TimelinePanel', {
+            module: me
+        });
+
+        me.timelineWindow = Ext.create('Ext.window.Window', {
             title: l('График рейсов'),
             width: 600,
             height: 250,
@@ -204,17 +221,16 @@ Ext.define('Store.passenger_transit.Module', {
             closeAction: 'hide',
             layout: 'fit',
             cls: 'pt-floating-timeline-panel',
-            items: [Ext.create('Store.passenger_transit.view.TimelinePanel', {
-                module: me
-            })],
+            items: [me.timelinePanel],
             listeners: {
-                show: function(win) {
-                    me.timelinePanel = win.down('panel');
+                beforeclose: function(win) {
+                    win.hide();
+                    return false;
                 }
             }
         });
 
-        // Добавляем кнопки для показа/скрытия панелей в дерево маршрутов
+        // Добавляем кнопки управления в нижнюю часть дерева маршрутов
         if (me.routeTree) {
             me.routeTree.addDocked({
                 xtype: 'toolbar',
@@ -223,39 +239,31 @@ Ext.define('Store.passenger_transit.Module', {
                     {
                         text: l('Мнемосхема'),
                         iconCls: 'fa fa-list',
-                        toggleGroup: 'floating-panels',
                         enableToggle: true,
                         pressed: true,
-                        handler: function(btn) {
-                            if (btn.pressed) {
-                                me.state.floatingPanels.memo.show();
+                        toggleHandler: function(btn, pressed) {
+                            if (pressed) {
+                                me.memoWindow.show();
                             } else {
-                                me.state.floatingPanels.memo.hide();
+                                me.memoWindow.hide();
                             }
                         }
                     },
                     {
                         text: l('График'),
                         iconCls: 'fa fa-chart-bar',
-                        toggleGroup: 'floating-panels',
                         enableToggle: true,
                         pressed: true,
-                        handler: function(btn) {
-                            if (btn.pressed) {
-                                me.state.floatingPanels.timeline.show();
+                        toggleHandler: function(btn, pressed) {
+                            if (pressed) {
+                                me.timelineWindow.show();
                             } else {
-                                me.state.floatingPanels.timeline.hide();
+                                me.timelineWindow.hide();
                             }
                         }
                     }
                 ]
             });
-        }
-
-        // Показываем панели по умолчанию только если наша вкладка активна
-        if (skeleton.navigation && skeleton.navigation.getActiveTab() === me.navTab) {
-            me.state.floatingPanels.memo.show();
-            me.state.floatingPanels.timeline.show();
         }
     },
 
@@ -617,14 +625,10 @@ Ext.define('Store.passenger_transit.Module', {
 
     showRouteEditToolbar: function () {
         var me = this;
-        var mapContainer = me.getPilotMap();
-        if (!mapContainer) return;
 
         if (!me.editToolbar) {
             me.editToolbar = Ext.create('Ext.toolbar.Toolbar', {
-                dock: 'top',
                 cls: 'pt-edit-toolbar',
-                renderTo: document.body,
                 floating: true,
                 x: 100,
                 y: 100,
@@ -646,8 +650,8 @@ Ext.define('Store.passenger_transit.Module', {
                     { xtype: 'tbtext', text: l('Точек: ') + '0' }
                 ]
             });
-            me.editToolbar.show();
         }
+        me.editToolbar.show();
         me.updateEditToolbarStats();
     },
 
@@ -949,6 +953,7 @@ Ext.define('Store.passenger_transit.Module', {
         });
         me.drawVehicles(routeId, enrichedVehicles);
 
+        // Обновляем мнемосхему и график
         if (me.memoPanel) {
             me.memoPanel.loadRoute(route);
         }
