@@ -1,8 +1,7 @@
 /* ==========================================================================
    passenger_transit/style.css
    PILOT Extension: Пассажирские перевозки
-   Полная стилизация модуля с поддержкой плавающих панелей,
-   разделённой левой панели и модальных окон
+   Архитектура: Справочник остановок (геозоны) + Маршруты
    ========================================================================== */
 
 /* ==========================================================================
@@ -354,7 +353,7 @@
 }
 
 /* ==========================================================================
-   7. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
+   7. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ МАРШРУТА (подсвеченные)
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -381,6 +380,25 @@
 .pt-stop-number:hover {
     transform: scale(1.15);
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.5);
+}
+
+.pt-route-stop-marker {
+    background: transparent !important;
+    border: none !important;
+}
+
+.pt-route-stop-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid #fff;
 }
 
 /* ==========================================================================
@@ -447,7 +465,357 @@
 }
 
 /* ==========================================================================
-   9. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   9. ГЕОЗОНЫ ОСТАНОВОК (СПРАВОЧНИК)
+   ========================================================================== */
+
+/* Подпись остановки */
+.pt-stop-label {
+    background: transparent !important;
+    border: none !important;
+    pointer-events: none !important;
+}
+
+.pt-stop-label-text {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1e293b;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e2e8f0;
+}
+
+/* Геозона остановки (серый круг) */
+.pt-stop-zone {
+    cursor: grab;
+    transition: fill-opacity 0.15s ease;
+}
+
+.pt-stop-zone:hover {
+    fill-opacity: 0.4 !important;
+}
+
+/* Popup остановки */
+.pt-stop-popup {
+    min-width: 180px;
+    padding: 4px;
+}
+
+.pt-stop-popup b {
+    color: #2563eb;
+    font-size: 14px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.pt-stop-popup small {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pt-stop-popup-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.pt-stop-popup-buttons button {
+    flex: 1;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pt-stop-popup-buttons .pt-btn-edit {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.pt-stop-popup-buttons .pt-btn-edit:hover {
+    background: #2563eb;
+    color: #fff;
+}
+
+.pt-stop-popup-buttons .pt-btn-delete {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.pt-stop-popup-buttons .pt-btn-delete:hover {
+    background: #dc2626;
+    color: #fff;
+}
+
+/* "Ручка" для изменения радиуса геозоны */
+.pt-zone-handle {
+    background: transparent !important;
+    border: none !important;
+}
+
+.pt-zone-handle-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #f59e0b;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: grab;
+    transition: transform 0.1s ease;
+}
+
+.pt-zone-handle-dot:hover {
+    transform: scale(1.3);
+}
+
+.pt-zone-handle-dot:active {
+    cursor: grabbing;
+}
+
+/* Тулбар редактирования геозоны */
+.pt-stop-edit-toolbar {
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    padding: 8px 12px !important;
+    z-index: 1000 !important;
+}
+
+.pt-stop-edit-toolbar .pt-toolbar-info {
+    font-weight: 600;
+    color: #f59e0b;
+    padding: 0 8px;
+}
+
+/* ==========================================================================
+   10. ОКНО СПРАВОЧНИКА ОСТАНОВОК
+   ========================================================================== */
+
+.pt-stops-catalog-window {
+    border-radius: var(--pt-radius-lg) !important;
+    overflow: hidden;
+    box-shadow: var(--pt-shadow-lg) !important;
+    animation: pt-fade-in 0.25s ease-out;
+}
+
+.pt-stops-catalog-window .x-window-header {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%) !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+}
+
+.pt-stops-catalog-window .x-window-header-title-default {
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.pt-stops-catalog-window .x-window-header .fa-map-marker {
+    margin-right: 6px;
+}
+
+/* Кнопки действий в гриде */
+.pt-grid-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    margin: 0 1px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    font-size: 12px;
+}
+
+.pt-grid-btn-edit {
+    color: #2563eb;
+}
+
+.pt-grid-btn-edit:hover {
+    background: #dbeafe;
+}
+
+.pt-grid-btn-delete {
+    color: #dc2626;
+}
+
+.pt-grid-btn-delete:hover {
+    background: #fee2e2;
+}
+
+.pt-grid-btn-up,
+.pt-grid-btn-down {
+    color: #64748b;
+}
+
+.pt-grid-btn-up:hover,
+.pt-grid-btn-down:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+}
+
+/* ==========================================================================
+   11. ОКНО ПРИВЯЗКИ ОСТАНОВОК К МАРШРУТУ
+   ========================================================================== */
+
+.pt-route-stops-binding-window {
+    border-radius: var(--pt-radius-lg) !important;
+    overflow: hidden;
+    box-shadow: var(--pt-shadow-lg) !important;
+    animation: pt-fade-in 0.25s ease-out;
+}
+
+.pt-route-stops-binding-window .x-window-header {
+    background: linear-gradient(135deg, var(--pt-primary) 0%, var(--pt-primary-hover) 100%) !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+}
+
+.pt-route-stops-binding-window .x-window-header-title-default {
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.pt-direction-select {
+    padding: 4px 6px;
+    border: 1px solid var(--pt-border);
+    border-radius: 4px;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.15s ease;
+}
+
+.pt-direction-select:hover {
+    border-color: var(--pt-primary);
+}
+
+.pt-direction-select:focus {
+    outline: none;
+    border-color: var(--pt-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* ==========================================================================
+   12. МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ
+   ========================================================================== */
+
+.pt-addstop-window {
+    border-radius: var(--pt-radius-lg) !important;
+    overflow: hidden;
+    box-shadow: var(--pt-shadow-lg) !important;
+    animation: pt-fade-in 0.25s ease-out;
+}
+
+.pt-addstop-window .x-window-header {
+    background: linear-gradient(135deg, var(--pt-warning) 0%, #d97706 100%) !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+}
+
+.pt-addstop-window .x-window-header-title-default {
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.pt-addstop-window .x-window-header .fa-map-marker {
+    margin-right: 6px;
+    color: #fff;
+}
+
+.pt-addstop-window .x-window-body {
+    background: var(--pt-bg) !important;
+    padding: 0 !important;
+}
+
+.pt-addstop-window .x-form-item-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 13px !important;
+}
+
+.pt-addstop-window .x-form-text {
+    border-radius: var(--pt-radius-sm) !important;
+    border: 1px solid var(--pt-border) !important;
+    transition: var(--pt-transition-fast);
+    font-size: 13px !important;
+    padding: 6px 10px !important;
+}
+
+.pt-addstop-window .x-form-text:focus {
+    border-color: var(--pt-primary) !important;
+    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
+    outline: none;
+}
+
+.pt-addstop-window .x-form-invalid-field {
+    border-color: var(--pt-danger) !important;
+    background: var(--pt-danger-light) !important;
+}
+
+.pt-addstop-window .x-form-display-field {
+    font-family: inherit;
+}
+
+/* Подсказка под формой */
+.pt-addstop-hint {
+    margin-top: 12px !important;
+    padding: 10px 12px !important;
+    background: var(--pt-info-light) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    border-left: 3px solid var(--pt-info) !important;
+    color: var(--pt-text-muted) !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+}
+
+.pt-addstop-hint .fa-info-circle {
+    color: var(--pt-info);
+    margin-right: 6px;
+}
+
+/* Кнопки окна */
+.pt-addstop-window .x-btn {
+    border-radius: var(--pt-radius-sm) !important;
+    font-weight: 600 !important;
+    padding: 8px 18px !important;
+    transition: var(--pt-transition-fast);
+}
+
+.pt-addstop-window .pt-btn-primary {
+    background: var(--pt-primary) !important;
+    border-color: var(--pt-primary) !important;
+    color: #fff !important;
+}
+
+.pt-addstop-window .pt-btn-primary:hover {
+    background: var(--pt-primary-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--pt-shadow);
+}
+
+.pt-addstop-window .x-toolbar {
+    background: var(--pt-bg-alt) !important;
+    border-top: 1px solid var(--pt-border) !important;
+    padding: 10px 12px !important;
+}
+
+/* ==========================================================================
+   13. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -498,7 +866,7 @@
 }
 
 /* ==========================================================================
-   10. ДИАЛОГ ПРИВЯЗКИ ТС
+   14. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -547,7 +915,7 @@
 }
 
 /* ==========================================================================
-   11. КНОПКА В ХЕДЕРЕ PILOT
+   15. КНОПКА В ХЕДЕРЕ PILOT
    ========================================================================== */
 .passenger_transit-header-btn {
     background: transparent !important;
@@ -568,7 +936,7 @@
 }
 
 /* ==========================================================================
-   12. TOAST-УВЕДОМЛЕНИЯ
+   16. TOAST-УВЕДОМЛЕНИЯ
    ========================================================================== */
 .x-toast {
     border-radius: var(--pt-radius-md) !important;
@@ -586,7 +954,7 @@
 }
 
 /* ==========================================================================
-   13. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
+   17. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
    ========================================================================== */
 .x-message-box {
     border-radius: var(--pt-radius-md) !important;
@@ -621,7 +989,7 @@
 }
 
 /* ==========================================================================
-   14. СКРОЛЛБАРЫ
+   18. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
 .pt-route-tree ::-webkit-scrollbar,
@@ -652,7 +1020,7 @@
 }
 
 /* ==========================================================================
-   15. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   19. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
    ========================================================================== */
 
 .pt-vehicles-grid {
@@ -754,124 +1122,7 @@
 }
 
 /* ==========================================================================
-   16. МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ
-   ========================================================================== */
-
-.pt-addstop-window {
-    border-radius: var(--pt-radius-lg) !important;
-    overflow: hidden;
-    box-shadow: var(--pt-shadow-lg) !important;
-    animation: pt-fade-in 0.25s ease-out;
-}
-
-.pt-addstop-window .x-window-header {
-    background: linear-gradient(135deg, var(--pt-warning) 0%, #d97706 100%) !important;
-    color: #fff !important;
-    padding: 12px 16px !important;
-    border-bottom: none !important;
-}
-
-.pt-addstop-window .x-window-header-title-default {
-    color: #fff !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-}
-
-.pt-addstop-window .x-window-header .fa-map-marker {
-    margin-right: 6px;
-    color: #fff;
-}
-
-.pt-addstop-window .x-window-body {
-    background: var(--pt-bg) !important;
-    padding: 0 !important;
-}
-
-.pt-addstop-window .x-form-item-label {
-    font-weight: 600 !important;
-    color: var(--pt-text) !important;
-    font-size: 13px !important;
-}
-
-.pt-addstop-window .x-form-text {
-    border-radius: var(--pt-radius-sm) !important;
-    border: 1px solid var(--pt-border) !important;
-    transition: var(--pt-transition-fast);
-    font-size: 13px !important;
-    padding: 6px 10px !important;
-}
-
-.pt-addstop-window .x-form-text:focus {
-    border-color: var(--pt-primary) !important;
-    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
-    outline: none;
-}
-
-.pt-addstop-window .x-form-invalid-field {
-    border-color: var(--pt-danger) !important;
-    background: var(--pt-danger-light) !important;
-}
-
-/* Поле с названием маршрута */
-.pt-addstop-route-name .x-form-display-field {
-    font-weight: 700 !important;
-    color: var(--pt-primary) !important;
-    font-size: 14px !important;
-    padding: 6px 10px !important;
-    background: var(--pt-primary-light) !important;
-    border-radius: var(--pt-radius-sm) !important;
-    border-left: 3px solid var(--pt-primary) !important;
-}
-
-/* Подсказка под формой */
-.pt-addstop-hint {
-    margin-top: 12px !important;
-    padding: 10px 12px !important;
-    background: var(--pt-info-light) !important;
-    border-radius: var(--pt-radius-sm) !important;
-    border-left: 3px solid var(--pt-info) !important;
-    color: var(--pt-text-muted) !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
-}
-
-.pt-addstop-hint .fa-info-circle {
-    color: var(--pt-info);
-    margin-right: 6px;
-}
-
-/* Кнопки окна */
-.pt-addstop-window .x-btn {
-    border-radius: var(--pt-radius-sm) !important;
-    font-weight: 600 !important;
-    padding: 8px 18px !important;
-    transition: var(--pt-transition-fast);
-}
-
-.pt-addstop-window .pt-btn-primary {
-    background: var(--pt-primary) !important;
-    border-color: var(--pt-primary) !important;
-    color: #fff !important;
-}
-
-.pt-addstop-window .pt-btn-primary:hover {
-    background: var(--pt-primary-hover) !important;
-    transform: translateY(-1px);
-    box-shadow: var(--pt-shadow);
-}
-
-.pt-addstop-window .x-toolbar {
-    background: var(--pt-bg-alt) !important;
-    border-top: 1px solid var(--pt-border) !important;
-    padding: 10px 12px !important;
-}
-
-.pt-addstop-window .x-form-display-field {
-    font-family: inherit;
-}
-
-/* ==========================================================================
-   17. АДАПТИВНОСТЬ
+   20. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -925,10 +1176,16 @@
         width: 95vw !important;
         max-width: 460px !important;
     }
+    
+    .pt-stops-catalog-window,
+    .pt-route-stops-binding-window {
+        width: 95vw !important;
+        max-width: 650px !important;
+    }
 }
 
 /* ==========================================================================
-   18. АНИМАЦИИ
+   21. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -977,7 +1234,7 @@
 }
 
 /* ==========================================================================
-   19. УТИЛИТЫ
+   22. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -995,21 +1252,24 @@
 .pt-text-muted { color: var(--pt-text-muted); }
 
 /* ==========================================================================
-   20. ТЁМНАЯ ТЕМА (опционально)
+   23. ТЁМНАЯ ТЕМА (опционально)
    ========================================================================== */
 @media (prefers-color-scheme: dark) {
     /* Можно расширить при необходимости */
 }
 
 /* ==========================================================================
-   21. ПЕЧАТЬ
+   24. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
     .pt-floating-timeline-panel,
     .pt-edit-toolbar,
+    .pt-stop-edit-toolbar,
     .passenger_transit-header-btn,
-    .pt-addstop-window {
+    .pt-addstop-window,
+    .pt-stops-catalog-window,
+    .pt-route-stops-binding-window {
         display: none !important;
     }
     
