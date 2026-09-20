@@ -1,6 +1,7 @@
 /* ==========================================================================
    passenger_transit/style.css
    PILOT Extension: Пассажирские перевозки
+   Полная стилизация модуля с двухпанельной левой панелью
    ========================================================================== */
 
 /* ==========================================================================
@@ -90,10 +91,23 @@
 }
 
 /* ==========================================================================
-   3. ДЕРЕВО МАРШРУТОВ
+   3. ВЕРХНЯЯ ПАНЕЛЬ - ДЕРЕВО МАРШРУТОВ
    ========================================================================== */
 .pt-route-tree {
     background: var(--pt-bg);
+    border-bottom: none !important;
+}
+
+.pt-route-tree .x-panel-header {
+    background: linear-gradient(135deg, var(--pt-bg-alt) 0%, #fff 100%) !important;
+    border-bottom: 1px solid var(--pt-border) !important;
+    padding: 8px 12px !important;
+}
+
+.pt-route-tree .x-panel-header-title-default {
+    color: var(--pt-primary) !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
 }
 
 .pt-route-tree .x-tree-node-text {
@@ -150,7 +164,151 @@
 }
 
 /* ==========================================================================
-   4. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
+   4. НИЖНЯЯ ПАНЕЛЬ - СПИСОК ТС МАРШРУТА
+   ========================================================================== */
+.pt-vehicle-list-panel {
+    background: var(--pt-bg);
+    border-top: 2px solid var(--pt-primary) !important;
+}
+
+.pt-vehicle-list-panel .x-panel-header {
+    background: linear-gradient(135deg, var(--pt-bg-alt) 0%, #fff 100%) !important;
+    border-bottom: 1px solid var(--pt-border) !important;
+    padding: 8px 12px !important;
+}
+
+.pt-vehicle-list-panel .x-panel-header-title-default {
+    color: var(--pt-primary) !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+}
+
+.pt-vehicle-list-panel .x-grid-header-ct {
+    background: var(--pt-bg-alt) !important;
+    border-bottom: 1px solid var(--pt-border) !important;
+}
+
+.pt-vehicle-list-panel .x-column-header {
+    background: var(--pt-bg-alt) !important;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    color: var(--pt-text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px;
+}
+
+.pt-vehicle-list-panel .x-grid-item {
+    transition: var(--pt-transition-fast);
+    border-bottom: 1px solid var(--pt-border);
+}
+
+.pt-vehicle-list-panel .x-grid-item:hover {
+    background: var(--pt-bg-hover) !important;
+    cursor: pointer;
+}
+
+.pt-vehicle-list-panel .x-grid-item-selected {
+    background: var(--pt-primary-light) !important;
+    border-left: 3px solid var(--pt-primary);
+}
+
+/* Госномер ТС */
+.pt-vehicle-list-number {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 2px 0;
+}
+
+/* Стрелки направления движения */
+.pt-direction-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 16px;
+    font-weight: 700;
+    transition: var(--pt-transition);
+}
+
+.pt-direction-forward {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: var(--pt-primary);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.pt-direction-backward {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: var(--pt-secondary);
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.pt-direction-stopped {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: var(--pt-warning);
+    font-size: 10px;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.pt-direction-none {
+    background: var(--pt-bg-alt);
+    color: var(--pt-text-light);
+    font-size: 14px;
+}
+
+.pt-direction-arrow:hover {
+    transform: scale(1.15);
+}
+
+/* Счетчик рейсов */
+.pt-trips-count {
+    display: inline-block;
+    min-width: 32px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    transition: var(--pt-transition);
+}
+
+.pt-trips-active {
+    background: linear-gradient(135deg, var(--pt-success) 0%, #15803d 100%);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);
+}
+
+.pt-trips-zero {
+    background: var(--pt-bg-alt);
+    color: var(--pt-text-light);
+    border: 1px dashed var(--pt-border);
+}
+
+.pt-trips-count:hover {
+    transform: scale(1.1);
+}
+
+/* Пустое состояние списка ТС */
+.pt-vehicle-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    color: var(--pt-text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.pt-vehicle-list-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* ==========================================================================
+   5. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
    ========================================================================== */
 .pt-floating-memo-panel,
 .pt-floating-timeline-panel {
@@ -194,37 +352,8 @@
     transform: scale(1.1);
 }
 
-/* Кнопки управления плавающими панелями */
-.pt-route-tree .x-toolbar-docked-bottom {
-    background: var(--pt-bg-alt) !important;
-    border-top: 1px solid var(--pt-border) !important;
-    padding: 8px !important;
-}
-
-.pt-route-tree .x-toolbar-docked-bottom .x-btn {
-    background: var(--pt-bg);
-    border: 1px solid var(--pt-border);
-    color: var(--pt-text);
-    padding: 6px 12px !important;
-    font-size: 12px !important;
-    transition: var(--pt-transition-fast);
-}
-
-.pt-route-tree .x-toolbar-docked-bottom .x-btn:hover {
-    background: var(--pt-primary-light);
-    border-color: var(--pt-primary);
-    color: var(--pt-primary);
-}
-
-.pt-route-tree .x-toolbar-docked-bottom .x-btn-pressed {
-    background: var(--pt-primary) !important;
-    border-color: var(--pt-primary) !important;
-    color: #fff !important;
-    box-shadow: var(--pt-shadow-sm);
-}
-
 /* ==========================================================================
-   5. МНЕМОСХЕМА
+   6. МНЕМОСХЕМА
    ========================================================================== */
 .pt-memo-panel {
     background: var(--pt-bg);
@@ -364,7 +493,7 @@
 }
 
 /* ==========================================================================
-   6. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
+   7. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
    ========================================================================== */
 .pt-timeline-panel {
     background: var(--pt-bg);
@@ -381,7 +510,7 @@
 }
 
 /* ==========================================================================
-   7. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
+   8. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -411,7 +540,7 @@
 }
 
 /* ==========================================================================
-   8. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
+   9. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
    ========================================================================== */
 .pt-vehicle-marker {
     background: transparent !important;
@@ -474,7 +603,7 @@
 }
 
 /* ==========================================================================
-   9. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   10. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -525,7 +654,7 @@
 }
 
 /* ==========================================================================
-   10. ДИАЛОГ ПРИВЯЗКИ ТС
+   11. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -574,7 +703,7 @@
 }
 
 /* ==========================================================================
-   11. КНОПКА В ХЕДЕРЕ PILOT
+   12. КНОПКА В ХЕДЕРЕ PILOT
    ========================================================================== */
 .passenger_transit-header-btn {
     background: transparent !important;
@@ -595,7 +724,7 @@
 }
 
 /* ==========================================================================
-   12. TOAST-УВЕДОМЛЕНИЯ
+   13. TOAST-УВЕДОМЛЕНИЯ
    ========================================================================== */
 .x-toast {
     border-radius: var(--pt-radius-md) !important;
@@ -613,7 +742,7 @@
 }
 
 /* ==========================================================================
-   13. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
+   14. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
    ========================================================================== */
 .x-message-box {
     border-radius: var(--pt-radius-md) !important;
@@ -648,34 +777,63 @@
 }
 
 /* ==========================================================================
-   14. СКРОЛЛБАРЫ
+   15. КОНТЕКСТНОЕ МЕНЮ
+   ========================================================================== */
+.pt-menu-danger .x-menu-item-text {
+    color: var(--pt-danger) !important;
+}
+
+.pt-menu-danger:hover {
+    background: var(--pt-danger-light) !important;
+}
+
+.x-menu {
+    border-radius: var(--pt-radius-md) !important;
+    box-shadow: var(--pt-shadow-md) !important;
+    border: 1px solid var(--pt-border) !important;
+}
+
+.x-menu-item {
+    transition: var(--pt-transition-fast);
+}
+
+.x-menu-item:hover {
+    background: var(--pt-bg-hover) !important;
+}
+
+/* ==========================================================================
+   16. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
-.pt-route-tree ::-webkit-scrollbar {
+.pt-route-tree ::-webkit-scrollbar,
+.pt-vehicle-list-panel ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .pt-memo-panel ::-webkit-scrollbar-track,
-.pt-route-tree ::-webkit-scrollbar-track {
+.pt-route-tree ::-webkit-scrollbar-track,
+.pt-vehicle-list-panel ::-webkit-scrollbar-track {
     background: var(--pt-bg-alt);
     border-radius: 4px;
 }
 
 .pt-memo-panel ::-webkit-scrollbar-thumb,
-.pt-route-tree ::-webkit-scrollbar-thumb {
+.pt-route-tree ::-webkit-scrollbar-thumb,
+.pt-vehicle-list-panel ::-webkit-scrollbar-thumb {
     background: var(--pt-border-strong);
     border-radius: 4px;
     transition: var(--pt-transition-fast);
 }
 
 .pt-memo-panel ::-webkit-scrollbar-thumb:hover,
-.pt-route-tree ::-webkit-scrollbar-thumb:hover {
+.pt-route-tree ::-webkit-scrollbar-thumb:hover,
+.pt-vehicle-list-panel ::-webkit-scrollbar-thumb:hover {
     background: var(--pt-primary);
 }
 
 /* ==========================================================================
-   15. АДАПТИВНОСТЬ
+   17. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -707,6 +865,18 @@
     .pt-memo-stop-name {
         font-size: 12px;
     }
+    
+    .pt-direction-arrow {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+    }
+    
+    .pt-trips-count {
+        min-width: 28px;
+        padding: 3px 6px;
+        font-size: 11px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -724,10 +894,14 @@
         font-size: 11px;
         padding: 4px 8px !important;
     }
+    
+    .pt-vehicle-list-panel .x-column-header {
+        font-size: 10px !important;
+    }
 }
 
 /* ==========================================================================
-   16. АНИМАЦИИ
+   18. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -763,8 +937,19 @@
 .pt-memo-stop:nth-child(9) { animation-delay: 0.18s; }
 .pt-memo-stop:nth-child(10) { animation-delay: 0.20s; }
 
+.pt-vehicle-list-panel .x-grid-item {
+    animation: pt-fade-in 0.2s ease-out;
+    animation-fill-mode: both;
+}
+
+.pt-vehicle-list-panel .x-grid-item:nth-child(1) { animation-delay: 0.02s; }
+.pt-vehicle-list-panel .x-grid-item:nth-child(2) { animation-delay: 0.04s; }
+.pt-vehicle-list-panel .x-grid-item:nth-child(3) { animation-delay: 0.06s; }
+.pt-vehicle-list-panel .x-grid-item:nth-child(4) { animation-delay: 0.08s; }
+.pt-vehicle-list-panel .x-grid-item:nth-child(5) { animation-delay: 0.10s; }
+
 /* ==========================================================================
-   17. УТИЛИТЫ
+   19. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -782,14 +967,7 @@
 .pt-text-muted { color: var(--pt-text-muted); }
 
 /* ==========================================================================
-   18. ТЁМНАЯ ТЕМА (опционально, при наличии у PILOT)
-   ========================================================================== */
-@media (prefers-color-scheme: dark) {
-    /* Можно расширить при необходимости */
-}
-
-/* ==========================================================================
-   19. ПЕЧАТЬ
+   20. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
