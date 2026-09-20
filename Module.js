@@ -1,6 +1,6 @@
 // passenger_transit/Module.js
 // PILOT Extension: Пассажирские перевозки
-// Backend: Node.js на https://pillow-extremely-cakes-conducted.trycloudflare.com
+// Backend: Node.js на 37.139.99.253:3001
 // Frontend: GitHub Pages
 
 Ext.define('Store.passenger_transit.Module', {
