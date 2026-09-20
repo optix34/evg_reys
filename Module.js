@@ -1,6 +1,7 @@
 // passenger_transit/Module.js
 // PILOT Extension: Пассажирские перевозки
-// Backend: Node.js + SQLite (доступен через Ngrok)
+// Backend: Node.js на 37.139.99.253:3001
+// Frontend: GitHub Pages
 
 Ext.define('Store.passenger_transit.Module', {
     extend: 'Ext.Component',
@@ -35,6 +36,10 @@ Ext.define('Store.passenger_transit.Module', {
         pilotVehicles: [],
         routeEditMode: false,
         editDirection: 'forward',
+        // ========================================================================
+        // НОВОЕ: Храним координаты последнего клика для модального окна остановки
+        // ========================================================================
+        pendingStopCoords: null,
         isTabActive: false
     },
 
@@ -70,9 +75,7 @@ Ext.define('Store.passenger_transit.Module', {
             document.head.appendChild(link);
         }
 
-        // ========================================================================
-        // СОЗДАЕМ ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
-        // ========================================================================
+        // СОЗДАЕМ ДЕРЕВО МАРШРУТОВ И СОХРАНЯЕМ ССЫЛКУ
         me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', {
             module: me
         });
@@ -148,11 +151,8 @@ Ext.define('Store.passenger_transit.Module', {
             // Обработчик переключения вкладок
             if (skeleton.navigation.on) {
                 skeleton.navigation.on('tabchange', function(tabPanel, newTab) {
-                    if (newTab === me.navTab) {
-                        me.onTabActivated();
-                    } else {
-                        me.onTabDeactivated();
-                    }
+                    if (newTab === me.navTab) me.onTabActivated();
+                    else me.onTabDeactivated();
                 });
             }
 
@@ -314,7 +314,15 @@ Ext.define('Store.passenger_transit.Module', {
             jsonData: { route_id: routeId, stop: stop },
             success: function (resp) {
                 var data = Ext.decode(resp.responseText);
-                if (data.success) me.selectRoute(routeId);
+                if (data.success) {
+                    Ext.toast({ html: l('Остановка добавлена'), align: 't', timeout: 2000 });
+                    me.selectRoute(routeId);
+                } else {
+                    Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось добавить остановку'));
+                }
+            },
+            failure: function () {
+                Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения с бэкендом'));
             }
         });
     },
@@ -413,31 +421,20 @@ Ext.define('Store.passenger_transit.Module', {
 
     // ==================== ОБНОВЛЕНИЕ ГРИДА ТС МАРШРУТА ====================
 
-    /**
-     * Загружает ТС выбранного маршрута и отображает их в нижней панели.
-     * Для каждого ТС запрашивается количество выполненных рейсов.
-     */
     updateRouteVehiclesGrid: function(routeId) {
         var me = this;
         if (!me.vehiclesGrid) return;
-
-        // Очищаем грид
         me.vehiclesGrid.getStore().removeAll();
-
         if (!routeId) return;
 
         var boundVehicles = me.getRouteVehicles(routeId);
-        if (!boundVehicles || boundVehicles.length === 0) {
-            return;
-        }
+        if (!boundVehicles || boundVehicles.length === 0) return;
 
-        // Для каждого ТС получаем trips_count и направление
         var gridData = [];
         Ext.each(boundVehicles, function(v) {
             var trackInfo = me.getVehicleTrack(v.vehicle_id, routeId);
             var pilotVeh = me.state.pilotVehicles.find(function(pv) { return pv.id === v.vehicle_id; });
 
-            // Определяем направление на основе последней точки трека
             var direction = 'forward';
             if (trackInfo.track && trackInfo.track.length > 1) {
                 var lastPoint = trackInfo.track[trackInfo.track.length - 1];
@@ -730,7 +727,6 @@ Ext.define('Store.passenger_transit.Module', {
                             boundStore.reload();
                             pilotStore.reload();
                             leftGrid.getSelectionModel().deselectAll();
-                            // Обновляем грид ТС маршрута после привязки
                             if (me.state.selectedRoute) me.updateRouteVehiclesGrid(me.state.selectedRoute);
                         }, 500);
                     }
@@ -739,6 +735,65 @@ Ext.define('Store.passenger_transit.Module', {
             ]
         });
         win.show();
+    },
+
+    // ========================================================================
+    // НОВОЕ: МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ (аналогично вкладке Рейсы PILOT)
+    // ========================================================================
+
+    /**
+     * Открывает модальное окно добавления остановки с предзаполненными координатами.
+     * @param {Object} coords - {lat, lon} координаты клика по карте
+     */
+    showAddStopWindow: function(coords) {
+        var me = this;
+
+        if (!me.state.selectedRoute) {
+            Ext.Msg.alert(l('Внимание'), l('Сначала выберите маршрут'));
+            return;
+        }
+
+        // Создаем временный маркер для предпросмотра
+        me._previewStopMarker = L.circleMarker([coords.lat, coords.lon], {
+            radius: 10,
+            fillColor: '#f59e0b',
+            color: '#fff',
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.8,
+            dashArray: '4, 4'
+        }).addTo(me.getPilotMap().map);
+
+        // Создаем модальное окно
+        me.addStopWindow = Ext.create('Store.passenger_transit.view.AddStopWindow', {
+            module: me,
+            coords: coords,
+            listeners: {
+                save: function(win, stopData) {
+                    me.addStop(me.state.selectedRoute, stopData);
+                    me.removePreviewStopMarker();
+                },
+                cancel: function() {
+                    me.removePreviewStopMarker();
+                },
+                beforeclose: function() {
+                    me.removePreviewStopMarker();
+                }
+            }
+        });
+
+        me.addStopWindow.show();
+    },
+
+    removePreviewStopMarker: function() {
+        var me = this;
+        if (me._previewStopMarker) {
+            var map = me.getPilotMap();
+            if (map && map.map) {
+                map.map.removeLayer(me._previewStopMarker);
+            }
+            me._previewStopMarker = null;
+        }
     },
 
     // ==================== MAP FUNCTIONS ====================
@@ -881,13 +936,9 @@ Ext.define('Store.passenger_transit.Module', {
         });
         me.drawVehicles(routeId, enrichedVehicles);
 
-        // Обновляем мнемосхему и график
         if (me.memoPanel) me.memoPanel.loadRoute(route);
         if (me.timelinePanel) me.timelinePanel.renderChart(me.getTimeline(routeId));
 
-        // ========================================================================
-        // НОВОЕ: Обновляем нижний грид с ТС маршрута
-        // ========================================================================
         me.updateRouteVehiclesGrid(routeId);
     },
 
@@ -902,10 +953,17 @@ Ext.define('Store.passenger_transit.Module', {
         );
     },
 
+    // ========================================================================
+    // ИЗМЕНЕНО: Режим добавления остановок теперь открывает МОДАЛЬНОЕ ОКНО
+    // ========================================================================
     enableEditMode: function () {
         var me = this;
         if (me.state.routeEditMode) {
             Ext.Msg.alert(l('Внимание'), l('Сначала завершите редактирование маршрута'));
+            return;
+        }
+        if (!me.state.selectedRoute) {
+            Ext.Msg.alert(l('Внимание'), l('Сначала выберите маршрут'));
             return;
         }
         me.state.editMode = true;
@@ -914,16 +972,15 @@ Ext.define('Store.passenger_transit.Module', {
 
         me._mapClickHandler = function (e) {
             if (!me.state.editMode || !me.state.selectedRoute) return;
-            Ext.Msg.prompt(
-                l('Новая остановка'),
-                l('Название остановки') + ':',
-                function (btn, text) {
-                    if (btn === 'ok' && text) {
-                        me.addStop(me.state.selectedRoute, { name: text, lat: e.latlng.lat, lon: e.latlng.lng });
-                    }
-                },
-                this, false, ''
-            );
+
+            // Сохраняем координаты клика
+            me.state.pendingStopCoords = {
+                lat: parseFloat(e.latlng.lat.toFixed(6)),
+                lon: parseFloat(e.latlng.lng.toFixed(6))
+            };
+
+            // ОТКРЫВАЕМ МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ
+            me.showAddStopWindow(me.state.pendingStopCoords);
         };
         map.map.on('click', me._mapClickHandler);
         Ext.toast({ html: l('Кликните по карте для добавления остановки'), align: 't', timeout: 5000 });
@@ -934,6 +991,7 @@ Ext.define('Store.passenger_transit.Module', {
         me.state.editMode = false;
         var map = me.getPilotMap();
         if (map && map.map && me._mapClickHandler) map.map.off('click', me._mapClickHandler);
+        me.removePreviewStopMarker();
     },
 
     getRouteById: function (routeId) {
@@ -1073,7 +1131,6 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
 
 // ============================================================================
 // VIEW: RouteVehiclesGrid (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
-// Отображает ТС выбранного маршрута: госномер, направление, кол-во рейсов
 // ============================================================================
 Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
     extend: 'Ext.grid.Panel',
@@ -1118,12 +1175,10 @@ Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
                 renderer: function(value) {
                     if (value === 'forward') {
                         return '<div class="pt-direction-badge pt-direction-forward" title="' + l('Прямое направление') + '">' +
-                               '<i class="fa fa-long-arrow-right"></i>' +
-                               '</div>';
+                               '<i class="fa fa-long-arrow-right"></i></div>';
                     } else if (value === 'backward') {
                         return '<div class="pt-direction-badge pt-direction-backward" title="' + l('Обратное направление') + '">' +
-                               '<i class="fa fa-long-arrow-left"></i>' +
-                               '</div>';
+                               '<i class="fa fa-long-arrow-left"></i></div>';
                     }
                     return '<span style="color:#94a3b8">—</span>';
                 }
@@ -1164,25 +1219,192 @@ Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
             scope: me
         };
 
-        // Контекстное меню для ТС
         me.selModel = Ext.create('Ext.selection.RowModel', { mode: 'SINGLE' });
-
         me.callParent(arguments);
     }
 });
 
 
 // ============================================================================
-// VIEW: MainPanel (НЕ ИСПОЛЬЗУЕТСЯ — карта PILOT видна напрямую)
+// НОВОЕ: VIEW: AddStopWindow - МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ
+// Аналогично вкладке "Рейсы" в PILOT
 // ============================================================================
-Ext.define('Store.passenger_transit.view.MainPanel', {
-    extend: 'Ext.panel.Panel',
-    layout: 'border',
-    cls: 'pt-main-panel',
+Ext.define('Store.passenger_transit.view.AddStopWindow', {
+    extend: 'Ext.window.Window',
+    alias: 'widget.pt-addstopwindow',
+    cls: 'pt-addstop-window',
+    modal: true,
+    width: 460,
+    closable: true,
+    resizable: false,
+    closeAction: 'destroy',
+    title: '<i class="fa fa-map-marker"></i> ' + l('Добавить остановку'),
+
     initComponent: function () {
         var me = this;
-        me.items = [];
+        var coords = me.coords || { lat: 0, lon: 0 };
+
+        me.items = [{
+            xtype: 'form',
+            itemId: 'stopForm',
+            bodyPadding: 16,
+            border: false,
+            defaults: {
+                labelWidth: 120,
+                anchor: '100%',
+                msgTarget: 'side'
+            },
+            items: [
+                {
+                    xtype: 'displayfield',
+                    fieldLabel: l('Маршрут'),
+                    cls: 'pt-addstop-route-name',
+                    value: me.module && me.module.state.selectedRoute
+                        ? (me.module.getRouteById(me.module.state.selectedRoute) || {}).name || '—'
+                        : '—'
+                },
+                {
+                    xtype: 'textfield',
+                    name: 'name',
+                    itemId: 'stopName',
+                    fieldLabel: l('Название') + ':',
+                    emptyText: l('Например: пл. Ленина'),
+                    allowBlank: false,
+                    minLength: 2,
+                    maxLength: 100,
+                    minLengthText: l('Минимум 2 символа'),
+                    maxLengthText: l('Максимум 100 символов'),
+                    listeners: {
+                        afterrender: function(field) {
+                            setTimeout(function() { field.focus(true, 100); }, 100);
+                        },
+                        specialkey: function(field, e) {
+                            if (e.getKey() === e.ENTER) {
+                                me.onSaveClick();
+                            }
+                        }
+                    }
+                },
+                {
+                    xtype: 'fieldcontainer',
+                    fieldLabel: l('Координаты') + ':',
+                    layout: 'hbox',
+                    defaults: {
+                        flex: 1,
+                        labelWidth: 30,
+                        decimalPrecision: 6,
+                        minValue: -180,
+                        maxValue: 180,
+                        allowDecimals: true,
+                        allowBlank: false
+                    },
+                    items: [
+                        {
+                            xtype: 'numberfield',
+                            name: 'lat',
+                            itemId: 'stopLat',
+                            fieldLabel: l('Шир'),
+                            value: coords.lat,
+                            minValue: -90,
+                            maxValue: 90
+                        },
+                        {
+                            xtype: 'numberfield',
+                            name: 'lon',
+                            itemId: 'stopLon',
+                            fieldLabel: l('Дол'),
+                            value: coords.lon,
+                            margin: '0 0 0 8'
+                        }
+                    ]
+                },
+                {
+                    xtype: 'textarea',
+                    name: 'description',
+                    fieldLabel: l('Описание') + ':',
+                    emptyText: l('Необязательное описание остановки'),
+                    maxLength: 255,
+                    height: 60,
+                    grow: true,
+                    growMin: 40,
+                    growMax: 120
+                },
+                {
+                    xtype: 'container',
+                    cls: 'pt-addstop-hint',
+                    html: '<i class="fa fa-info-circle"></i> ' +
+                          l('Координаты взяты из клика по карте. Вы можете изменить их вручную.')
+                }
+            ]
+        }];
+
+        me.buttons = [
+            {
+                text: l('Сохранить'),
+                iconCls: 'fa fa-check',
+                cls: 'pt-btn-primary',
+                formBind: true,
+                handler: me.onSaveClick,
+                scope: me
+            },
+            {
+                text: l('Отмена'),
+                iconCls: 'fa fa-times',
+                handler: me.onCancelClick,
+                scope: me
+            }
+        ];
+
         me.callParent(arguments);
+    },
+
+    onSaveClick: function () {
+        var me = this;
+        var form = me.down('#stopForm').getForm();
+
+        if (!form.isValid()) {
+            Ext.toast({
+                html: l('Заполните все обязательные поля'),
+                align: 't',
+                timeout: 2500
+            });
+            return;
+        }
+
+        var values = form.getValues();
+        var name = String(values.name).trim();
+
+        if (name.length < 2) {
+            Ext.Msg.alert(l('Ошибка'), l('Название должно содержать минимум 2 символа'));
+            return;
+        }
+
+        var lat = parseFloat(values.lat);
+        var lon = parseFloat(values.lon);
+
+        if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            Ext.Msg.alert(l('Ошибка'), l('Некорректные координаты'));
+            return;
+        }
+
+        var stopData = {
+            name: name,
+            lat: lat,
+            lon: lon
+        };
+
+        if (values.description && values.description.trim()) {
+            stopData.description = values.description.trim();
+        }
+
+        me.fireEvent('save', me, stopData);
+        me.close();
+    },
+
+    onCancelClick: function () {
+        var me = this;
+        me.fireEvent('cancel', me);
+        me.close();
     }
 });
 
