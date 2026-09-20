@@ -1,6 +1,8 @@
 /* ==========================================================================
    passenger_transit/style.css
    PILOT Extension: Пассажирские перевозки
+   Полная стилизация модуля с поддержкой плавающих панелей,
+   разделённой левой панели и модальных окон
    ========================================================================== */
 
 /* ==========================================================================
@@ -90,7 +92,7 @@
 }
 
 /* ==========================================================================
-   3. ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ)
+   3. ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
    ========================================================================== */
 .pt-route-tree {
     background: var(--pt-bg);
@@ -622,26 +624,30 @@
    14. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
-.pt-route-tree ::-webkit-scrollbar {
+.pt-route-tree ::-webkit-scrollbar,
+.pt-vehicles-grid ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .pt-memo-panel ::-webkit-scrollbar-track,
-.pt-route-tree ::-webkit-scrollbar-track {
+.pt-route-tree ::-webkit-scrollbar-track,
+.pt-vehicles-grid ::-webkit-scrollbar-track {
     background: var(--pt-bg-alt);
     border-radius: 4px;
 }
 
 .pt-memo-panel ::-webkit-scrollbar-thumb,
-.pt-route-tree ::-webkit-scrollbar-thumb {
+.pt-route-tree ::-webkit-scrollbar-thumb,
+.pt-vehicles-grid ::-webkit-scrollbar-thumb {
     background: var(--pt-border-strong);
     border-radius: 4px;
     transition: var(--pt-transition-fast);
 }
 
 .pt-memo-panel ::-webkit-scrollbar-thumb:hover,
-.pt-route-tree ::-webkit-scrollbar-thumb:hover {
+.pt-route-tree ::-webkit-scrollbar-thumb:hover,
+.pt-vehicles-grid ::-webkit-scrollbar-thumb:hover {
     background: var(--pt-primary);
 }
 
@@ -748,7 +754,124 @@
 }
 
 /* ==========================================================================
-   16. АДАПТИВНОСТЬ
+   16. МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ОСТАНОВКИ
+   ========================================================================== */
+
+.pt-addstop-window {
+    border-radius: var(--pt-radius-lg) !important;
+    overflow: hidden;
+    box-shadow: var(--pt-shadow-lg) !important;
+    animation: pt-fade-in 0.25s ease-out;
+}
+
+.pt-addstop-window .x-window-header {
+    background: linear-gradient(135deg, var(--pt-warning) 0%, #d97706 100%) !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+}
+
+.pt-addstop-window .x-window-header-title-default {
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.pt-addstop-window .x-window-header .fa-map-marker {
+    margin-right: 6px;
+    color: #fff;
+}
+
+.pt-addstop-window .x-window-body {
+    background: var(--pt-bg) !important;
+    padding: 0 !important;
+}
+
+.pt-addstop-window .x-form-item-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 13px !important;
+}
+
+.pt-addstop-window .x-form-text {
+    border-radius: var(--pt-radius-sm) !important;
+    border: 1px solid var(--pt-border) !important;
+    transition: var(--pt-transition-fast);
+    font-size: 13px !important;
+    padding: 6px 10px !important;
+}
+
+.pt-addstop-window .x-form-text:focus {
+    border-color: var(--pt-primary) !important;
+    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
+    outline: none;
+}
+
+.pt-addstop-window .x-form-invalid-field {
+    border-color: var(--pt-danger) !important;
+    background: var(--pt-danger-light) !important;
+}
+
+/* Поле с названием маршрута */
+.pt-addstop-route-name .x-form-display-field {
+    font-weight: 700 !important;
+    color: var(--pt-primary) !important;
+    font-size: 14px !important;
+    padding: 6px 10px !important;
+    background: var(--pt-primary-light) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    border-left: 3px solid var(--pt-primary) !important;
+}
+
+/* Подсказка под формой */
+.pt-addstop-hint {
+    margin-top: 12px !important;
+    padding: 10px 12px !important;
+    background: var(--pt-info-light) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    border-left: 3px solid var(--pt-info) !important;
+    color: var(--pt-text-muted) !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+}
+
+.pt-addstop-hint .fa-info-circle {
+    color: var(--pt-info);
+    margin-right: 6px;
+}
+
+/* Кнопки окна */
+.pt-addstop-window .x-btn {
+    border-radius: var(--pt-radius-sm) !important;
+    font-weight: 600 !important;
+    padding: 8px 18px !important;
+    transition: var(--pt-transition-fast);
+}
+
+.pt-addstop-window .pt-btn-primary {
+    background: var(--pt-primary) !important;
+    border-color: var(--pt-primary) !important;
+    color: #fff !important;
+}
+
+.pt-addstop-window .pt-btn-primary:hover {
+    background: var(--pt-primary-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--pt-shadow);
+}
+
+.pt-addstop-window .x-toolbar {
+    background: var(--pt-bg-alt) !important;
+    border-top: 1px solid var(--pt-border) !important;
+    padding: 10px 12px !important;
+}
+
+.pt-addstop-window .x-form-display-field {
+    font-family: inherit;
+}
+
+/* ==========================================================================
+   17. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -797,10 +920,15 @@
         font-size: 11px;
         padding: 4px 8px !important;
     }
+    
+    .pt-addstop-window {
+        width: 95vw !important;
+        max-width: 460px !important;
+    }
 }
 
 /* ==========================================================================
-   17. АНИМАЦИИ
+   18. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -836,8 +964,20 @@
 .pt-memo-stop:nth-child(9) { animation-delay: 0.18s; }
 .pt-memo-stop:nth-child(10) { animation-delay: 0.20s; }
 
+/* Анимация предпросмотрного маркера остановки */
+@keyframes pt-preview-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
 /* ==========================================================================
-   18. УТИЛИТЫ
+   19. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -855,20 +995,21 @@
 .pt-text-muted { color: var(--pt-text-muted); }
 
 /* ==========================================================================
-   19. ТЁМНАЯ ТЕМА (опционально)
+   20. ТЁМНАЯ ТЕМА (опционально)
    ========================================================================== */
 @media (prefers-color-scheme: dark) {
     /* Можно расширить при необходимости */
 }
 
 /* ==========================================================================
-   20. ПЕЧАТЬ
+   21. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
     .pt-floating-timeline-panel,
     .pt-edit-toolbar,
-    .passenger_transit-header-btn {
+    .passenger_transit-header-btn,
+    .pt-addstop-window {
         display: none !important;
     }
     
