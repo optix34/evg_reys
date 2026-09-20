@@ -55,8 +55,6 @@ Ext.define('Store.passenger_transit.Module', {
 
         // ========================================================================
         // ГАРАНТИРОВАННЫЙ ОБХОД ПРЕДУПРЕЖДЕНИЯ NGROK (Free Tier)
-        // Добавляет заголовок ко ВСЕМ AJAX-запросам, чтобы Ngrok не показывал 
-        // HTML-страницу "You are about to visit...", которая ломает CORS.
         // ========================================================================
         Ext.Ajax.on('beforerequest', function(conn, options) {
             options.headers = options.headers || {};
@@ -990,16 +988,13 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
             l('Название маршрута') + ':',
             function (btn, text) {
                 if (btn === 'ok') {
-                    // 1. Очищаем название от лишних пробелов
                     var routeName = text ? String(text).trim() : '';
 
-                    // 2. Проверяем длину НА ФРОНТЕНДЕ
                     if (routeName.length < 2) {
                         Ext.Msg.alert(l('Ошибка'), l('Название должно содержать минимум 2 символа'));
                         return;
                     }
 
-                    // 3. Отправляем запрос
                     Ext.Ajax.request({
                         url: me.module.getBackendUrl('routes'),
                         method: 'POST',
@@ -1007,7 +1002,6 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
                         success: function (resp) {
                             var data = Ext.decode(resp.responseText);
                             if (data.success && me.module) {
-                                // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ ОБ УСПЕШНОМ СОЗДАНИИ
                                 Ext.toast({ 
                                     html: l('Маршрут "') + routeName + l('" создан'), 
                                     align: 't', 
@@ -1018,7 +1012,6 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
                                 Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось создать маршрут'));
                             }
                         },
-                        // 4. БЛОК FAILURE: показываем ошибку, если она случится
                         failure: function (resp) {
                             var errorMsg = l('Ошибка соединения с сервером');
                             try {
