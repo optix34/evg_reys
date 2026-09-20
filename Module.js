@@ -80,7 +80,7 @@ Ext.define('Store.passenger_transit.Module', {
         });
 
         // Create navigation tab (левая панель)
-        var navTab = Ext.create('Pilot.utils.LeftBarPanel', {
+        me.navTab = Ext.create('Pilot.utils.LeftBarPanel', {
             title: l('Рейсы'),
             iconCls: 'fa fa-bus',
             iconAlign: 'top',
@@ -92,15 +92,11 @@ Ext.define('Store.passenger_transit.Module', {
         });
 
         // НЕ создаем MainPanel - карта PILOT должна быть видна полностью
-        // Вместо этого создаем плавающие панели поверх карты
-
-        // Link tab and panel (map_frame не устанавливаем, чтобы карта PILOT оставалась)
-        navTab.map_frame = null;
+        me.navTab.map_frame = null;
 
         // Integrate with PILOT skeleton
         if (window.skeleton && skeleton.navigation && skeleton.mapframe) {
-            skeleton.navigation.add(navTab);
-            // НЕ добавляем ничего в mapframe - карта PILOT остается видимой
+            skeleton.navigation.add(me.navTab);
 
             // Add header button
             if (skeleton.header && skeleton.header.insert) {
@@ -110,10 +106,15 @@ Ext.define('Store.passenger_transit.Module', {
                     iconCls: 'fa fa-route',
                     tooltip: l('Пассажирские перевозки'),
                     handler: function () {
-                        skeleton.navigation.setActiveTab(navTab);
+                        skeleton.navigation.setActiveTab(me.navTab);
                     },
                     scope: me
                 });
+            }
+
+            // Добавляем обработчик переключения вкладок
+            if (skeleton.navigation.on) {
+                skeleton.navigation.on('tabchange', me.onTabChange, me);
             }
 
             // Load data
@@ -126,6 +127,41 @@ Ext.define('Store.passenger_transit.Module', {
             }, 500);
         } else {
             Ext.log('passenger_transit: skeleton not found');
+        }
+    },
+
+    // ==================== TAB SWITCHING ====================
+
+    onTabChange: function(tabPanel, newTab) {
+        var me = this;
+
+        // Проверяем, активна ли наша вкладка
+        if (newTab === me.navTab) {
+            // Показываем плавающие панели
+            me.showFloatingPanels();
+        } else {
+            // Скрываем плавающие панели
+            me.hideFloatingPanels();
+        }
+    },
+
+    showFloatingPanels: function() {
+        var me = this;
+        if (me.state.floatingPanels.memo) {
+            me.state.floatingPanels.memo.show();
+        }
+        if (me.state.floatingPanels.timeline) {
+            me.state.floatingPanels.timeline.show();
+        }
+    },
+
+    hideFloatingPanels: function() {
+        var me = this;
+        if (me.state.floatingPanels.memo) {
+            me.state.floatingPanels.memo.hide();
+        }
+        if (me.state.floatingPanels.timeline) {
+            me.state.floatingPanels.timeline.hide();
         }
     },
 
@@ -216,9 +252,11 @@ Ext.define('Store.passenger_transit.Module', {
             });
         }
 
-        // Показываем панели по умолчанию
-        me.state.floatingPanels.memo.show();
-        me.state.floatingPanels.timeline.show();
+        // Показываем панели по умолчанию только если наша вкладка активна
+        if (skeleton.navigation && skeleton.navigation.getActiveTab() === me.navTab) {
+            me.state.floatingPanels.memo.show();
+            me.state.floatingPanels.timeline.show();
+        }
     },
 
     // ==================== PILOT API INTEGRATION ====================
@@ -969,10 +1007,6 @@ Ext.define('Store.passenger_transit.Module', {
             if (r.id == routeId) { found = r; return false; }
         });
         return found;
-    },
-
-    getMainPanel: function () {
-        return null; // Больше не используется
     },
 
     refreshRouteTree: function () {
