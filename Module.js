@@ -7,7 +7,7 @@ Ext.define('Store.passenger_transit.Module', {
     extend: 'Ext.Component',
     extensionName: 'passenger_transit',
 
-    // URL Node.js бэкенда (обновляйте при перезапуске ngrok)
+    // URL Node.js бэкенда
     backendBaseUrl: 'https://saggy-return-aide.ngrok-free.dev',
 
     getBackendUrl: function(action) {
@@ -71,7 +71,7 @@ Ext.define('Store.passenger_transit.Module', {
             document.head.appendChild(link);
         }
 
-        // СОЗДАЕМ ДЕРЕВО МАРШРУТОВ И СОХРАНЯЕМ ССЫЛКУ (КРИТИЧЕСКИ ВАЖНО!)
+        // СОЗДАЕМ ДЕРЕВО МАРШРУТОВ И СОХРАНЯЕМ ССЫЛКУ
         me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', {
             module: me
         });
@@ -84,7 +84,7 @@ Ext.define('Store.passenger_transit.Module', {
             minimized: false,
             width: 350,
             items: [
-                me.routeTree  // <-- ИСПОЛЬЗУЕМ СОХРАНЕННУЮ ССЫЛКУ
+                me.routeTree
             ]
         });
 
@@ -202,7 +202,7 @@ Ext.define('Store.passenger_transit.Module', {
             jsonData: { name: name },
             success: function (resp) {
                 var data = Ext.decode(resp.responseText);
-                if (data.success) {
+                if (data.success && me.module) {
                     me.loadRoutes();
                 }
             }
@@ -661,15 +661,29 @@ Ext.define('Store.passenger_transit.Module', {
     // ==================== MAP FUNCTIONS ====================
 
     getPilotMap: function () {
+        // Пытаемся получить карту из MainPanel
+        var mainPanel = this.getMainPanel();
+        if (mainPanel && mainPanel.mapPanel && mainPanel.mapPanel.map) {
+            return mainPanel.mapPanel;
+        }
+        
+        // Fallback: пробуем стандартные методы PILOT
         if (window.getActiveTabMapContainer) {
             return getActiveTabMapContainer();
         }
-        return window.mapContainer || null;
+        if (window.mapContainer) {
+            return window.mapContainer;
+        }
+        
+        return null;
     },
 
     drawRoute: function (routeId, forwardPoints, backwardPoints) {
         var map = this.getPilotMap();
-        if (!map || !map.map) return;
+        if (!map || !map.map) {
+            console.warn('passenger_transit: Карта недоступна для отрисовки маршрута');
+            return;
+        }
         this.clearRoute(routeId);
 
         if (forwardPoints && forwardPoints.length > 1) {
@@ -883,7 +897,6 @@ Ext.define('Store.passenger_transit.Module', {
 
     refreshRouteTree: function () {
         var me = this;
-        // ИСПОЛЬЗУЕМ СОХРАНЕННУЮ ССЫЛКУ НА ДЕРЕВО (КРИТИЧЕСКИ ВАЖНО!)
         if (me.routeTree) {
             me.routeTree.loadRoutes(me.state.routes);
         }
@@ -1053,13 +1066,23 @@ Ext.define('Store.passenger_transit.view.MainPanel', {
 
     initComponent: function () {
         var me = this;
+        
+        // Создаем панель с собственной Leaflet-картой
+        me.mapPanel = Ext.create('Ext.panel.Panel', {
+            region: 'center',
+            layout: 'fit',
+            listeners: {
+                afterrender: function(panel) {
+                    // Инициализируем Leaflet-карту после рендеринга панели
+                    setTimeout(function() {
+                        me.initMap(panel);
+                    }, 100);
+                }
+            }
+        });
+        
         me.items = [
-            {
-                region: 'center',
-                xtype: 'panel',
-                cls: 'pt-map-placeholder',
-                html: '<div class="pt-map-hint">' + l('Используйте карту PILOT для отображения маршрутов. Выберите маршрут слева.') + '</div>'
-            },
+            me.mapPanel,
             Ext.create('Store.passenger_transit.view.RouteMemoPanel', {
                 region: 'east',
                 module: me.module,
@@ -1077,6 +1100,32 @@ Ext.define('Store.passenger_transit.view.MainPanel', {
             })
         ];
         me.callParent(arguments);
+    },
+    
+    initMap: function(panel) {
+        var me = this;
+        var mapContainer = panel.getEl().dom;
+        
+        // Проверяем, загружен ли Leaflet
+        if (typeof L === 'undefined') {
+            console.error('passenger_transit: Leaflet не загружен');
+            mapContainer.innerHTML = '<div style="padding:20px;color:red;">Ошибка: Leaflet не загружен. Добавьте скрипт Leaflet в index.html</div>';
+            return;
+        }
+        
+        // Создаем карту
+        var map = L.map(mapContainer).setView([55.7558, 37.6173], 10); // Москва по умолчанию
+        
+        // Добавляем тайлы OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Сохраняем ссылку на карту
+        me.mapPanel.map = map;
+        
+        console.log('passenger_transit: Карта инициализирована');
     }
 });
 
