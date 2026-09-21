@@ -3,12 +3,13 @@
    PILOT Extension: Пассажирские перевозки
    Полная стилизация модуля:
    - Переключатель панелей (Маршруты / Остановки)
+   - Дерево маршрутов + Грид ТС маршрута (левая панель)
    - Справочник остановок с геозонами
-   - Панель редактирования остановки (слева)
-   - RFID метки
-   - Модальное окно выбора RFID
-   - Маршруты, мнемосхема, график рейсов
-   - Грид ТС маршрута
+   - Панель редактирования остановки
+   - RFID метки (выбор, создание)
+   - Модальные окна
+   - Геозоны и маркеры на карте
+   - Мнемосхема и график рейсов
    ========================================================================== */
 
 /* ==========================================================================
@@ -24,6 +25,7 @@
 
     /* Цвета состояний */
     --pt-success: #16a34a;
+    --pt-success-hover: #15803d;
     --pt-success-light: #dcfce7;
     --pt-warning: #f59e0b;
     --pt-warning-hover: #d97706;
@@ -32,7 +34,7 @@
     --pt-danger-light: #fee2e2;
     --pt-info: #0ea5e9;
     --pt-info-light: #e0f2fe;
-    
+
     /* RFID - фиолетовая тема */
     --pt-rfid: #7c3aed;
     --pt-rfid-light: #ede9fe;
@@ -140,7 +142,7 @@
 }
 
 /* ==========================================================================
-   4. ДЕРЕВО МАРШРУТОВ
+   4. ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
    ========================================================================== */
 .pt-route-tree {
     background: var(--pt-bg);
@@ -200,7 +202,102 @@
 }
 
 /* ==========================================================================
-   5. СПРАВОЧНИК ОСТАНОВОК
+   5. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   ========================================================================== */
+.pt-vehicles-grid {
+    background: var(--pt-bg);
+    border-top: 2px solid var(--pt-primary);
+}
+
+.pt-vehicles-grid .x-grid-header-ct {
+    background: var(--pt-bg-alt) !important;
+    border-bottom: 1px solid var(--pt-border) !important;
+}
+
+.pt-vehicles-grid .x-column-header {
+    background: var(--pt-bg-alt) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--pt-text-muted) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pt-vehicles-grid .x-grid-item {
+    transition: var(--pt-transition-fast);
+    border-bottom: 1px solid var(--pt-border);
+}
+
+.pt-vehicles-grid .x-grid-item:hover {
+    background: var(--pt-bg-hover) !important;
+    cursor: pointer;
+}
+
+.pt-vehicles-grid .x-grid-item-selected {
+    background: var(--pt-primary-light) !important;
+    border-left: 3px solid var(--pt-primary);
+}
+
+/* Онлайн / оффлайн строки */
+.pt-vehicle-row-online {
+    background: rgba(22, 163, 74, 0.03);
+}
+
+.pt-vehicle-row-offline {
+    opacity: 0.75;
+}
+
+/* Пустое состояние */
+.pt-vehicles-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 150px;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Бейдж направления */
+.pt-direction-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 700;
+    transition: var(--pt-transition-fast);
+}
+
+.pt-direction-forward {
+    background: var(--pt-primary-light);
+    color: var(--pt-primary);
+    border: 1px solid var(--pt-primary);
+}
+
+.pt-direction-backward {
+    background: var(--pt-secondary-light);
+    color: var(--pt-secondary);
+    border: 1px solid var(--pt-secondary);
+}
+
+.pt-direction-badge:hover {
+    transform: scale(1.15);
+    box-shadow: var(--pt-shadow-sm);
+}
+
+/* Заголовок нижней панели */
+.pt-vehicles-grid .x-panel-header-title-default {
+    color: #fff !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   6. СПРАВОЧНИК ОСТАНОВОК
    ========================================================================== */
 .pt-stops-catalog-panel {
     background: var(--pt-bg);
@@ -270,7 +367,7 @@
 }
 
 /* ==========================================================================
-   6. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
+   7. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
    ========================================================================== */
 .pt-stop-edit-panel {
     background: var(--pt-bg);
@@ -352,7 +449,7 @@
 }
 
 /* ==========================================================================
-   7. СЕКЦИЯ RFID МЕТКИ
+   8. СЕКЦИЯ RFID МЕТКИ
    ========================================================================== */
 .pt-rfid-selector {
     margin-bottom: 12px;
@@ -435,7 +532,7 @@
 }
 
 /* ==========================================================================
-   8. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
+   9. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
    ========================================================================== */
 .pt-stop-edit-actions .pt-btn-save {
     background: var(--pt-success) !important;
@@ -448,8 +545,8 @@
 }
 
 .pt-stop-edit-actions .pt-btn-save:hover {
-    background: #15803d !important;
-    border-color: #15803d !important;
+    background: var(--pt-success-hover) !important;
+    border-color: var(--pt-success-hover) !important;
     transform: translateY(-1px);
     box-shadow: var(--pt-shadow);
 }
@@ -468,7 +565,7 @@
 }
 
 /* ==========================================================================
-   9. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+   10. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
    ========================================================================== */
 .pt-rfid-select-window {
     border-radius: var(--pt-radius-lg) !important;
@@ -551,7 +648,7 @@
 }
 
 /* ==========================================================================
-   10. ГЕОЗОНЫ ОСТАНОВОК НА КАРТЕ
+   11. ГЕОЗОНЫ ОСТАНОВОК НА КАРТЕ
    ========================================================================== */
 
 /* Подпись остановки справочника */
@@ -628,7 +725,7 @@
 }
 
 /* ==========================================================================
-   11. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
+   12. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
    ========================================================================== */
 .pt-stop-edit-center {
     background: transparent !important;
@@ -675,7 +772,7 @@
 }
 
 /* ==========================================================================
-   12. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
+   13. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
    ========================================================================== */
 .pt-floating-memo-panel,
 .pt-floating-timeline-panel {
@@ -720,7 +817,7 @@
 }
 
 /* ==========================================================================
-   13. МНЕМОСХЕМА
+   14. МНЕМОСХЕМА
    ========================================================================== */
 .pt-memo-panel {
     background: var(--pt-bg);
@@ -859,7 +956,7 @@
 }
 
 /* ==========================================================================
-   14. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
+   15. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
    ========================================================================== */
 .pt-timeline-panel {
     background: var(--pt-bg);
@@ -876,7 +973,7 @@
 }
 
 /* ==========================================================================
-   15. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
+   16. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -906,7 +1003,7 @@
 }
 
 /* ==========================================================================
-   16. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
+   17. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
    ========================================================================== */
 .pt-vehicle-marker {
     background: transparent !important;
@@ -917,7 +1014,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--pt-success) 0%, #15803d 100%);
+    background: linear-gradient(135deg, var(--pt-success) 0%, var(--pt-success-hover) 100%);
     color: #fff;
     display: flex;
     align-items: center;
@@ -969,7 +1066,7 @@
 }
 
 /* ==========================================================================
-   17. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   18. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -1020,7 +1117,7 @@
 }
 
 /* ==========================================================================
-   18. ДИАЛОГ ПРИВЯЗКИ ТС
+   19. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -1066,104 +1163,6 @@
     border-color: var(--pt-primary);
     box-shadow: 0 0 0 3px var(--pt-primary-light);
     outline: none;
-}
-
-/* ==========================================================================
-   19. ГРИД ТС МАРШРУТА
-   ========================================================================== */
-.pt-vehicles-grid {
-    background: var(--pt-bg);
-    border-top: 2px solid var(--pt-primary);
-}
-
-.pt-vehicles-grid .x-grid-header-ct {
-    background: var(--pt-bg-alt) !important;
-    border-bottom: 1px solid var(--pt-border) !important;
-}
-
-.pt-vehicles-grid .x-column-header {
-    background: var(--pt-bg-alt) !important;
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    color: var(--pt-text-muted) !important;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.pt-vehicles-grid .x-grid-item {
-    transition: var(--pt-transition-fast);
-    border-bottom: 1px solid var(--pt-border);
-}
-
-.pt-vehicles-grid .x-grid-item:hover {
-    background: var(--pt-bg-hover) !important;
-    cursor: pointer;
-}
-
-.pt-vehicles-grid .x-grid-item-selected {
-    background: var(--pt-primary-light) !important;
-    border-left: 3px solid var(--pt-primary);
-}
-
-.pt-vehicle-row-online {
-    background: rgba(22, 163, 74, 0.03);
-}
-
-.pt-vehicle-row-offline {
-    opacity: 0.75;
-}
-
-.pt-vehicles-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 150px;
-    padding: 20px;
-    text-align: center;
-}
-
-/* Бейдж направления */
-.pt-direction-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    font-size: 14px;
-    font-weight: 700;
-    transition: var(--pt-transition-fast);
-}
-
-.pt-direction-forward {
-    background: var(--pt-primary-light);
-    color: var(--pt-primary);
-    border: 1px solid var(--pt-primary);
-}
-
-.pt-direction-backward {
-    background: var(--pt-secondary-light);
-    color: var(--pt-secondary);
-    border: 1px solid var(--pt-secondary);
-}
-
-.pt-direction-badge:hover {
-    transform: scale(1.15);
-    box-shadow: var(--pt-shadow-sm);
-}
-
-.pt-vehicles-grid .x-panel-header {
-    background: linear-gradient(135deg, var(--pt-primary) 0%, var(--pt-primary-hover) 100%) !important;
-    padding: 6px 10px !important;
-    border: none !important;
-}
-
-.pt-vehicles-grid .x-panel-header-title-default {
-    color: #fff !important;
-    font-size: 12px !important;
-    font-weight: 600 !important;
 }
 
 /* ==========================================================================
