@@ -1,9 +1,12 @@
 /* ==========================================================================
    passenger_transit/style.css
    PILOT Extension: Пассажирские перевозки
+   
    Полная стилизация модуля:
    - Переключатель панелей (Маршруты / Остановки)
-   - Дерево маршрутов + Грид ТС маршрута (левая панель)
+   - Дерево маршрутов с бейджами статуса
+   - Панель редактирования маршрута (с fieldset'ами и toggle-переключателями)
+   - Грид ТС маршрута
    - Справочник остановок (маркеры-позиции на карте)
    - Панель редактирования остановки
    - RFID метки (модальное окно выбора)
@@ -141,7 +144,7 @@
 }
 
 /* ==========================================================================
-   4. ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   4. ДЕРЕВО МАРШРУТОВ (С БЕЙДЖАМИ СТАТУСА)
    ========================================================================== */
 .pt-route-tree {
     background: var(--pt-bg);
@@ -200,8 +203,242 @@
     color: #fff;
 }
 
+/* Колонка со статусом маршрута */
+.pt-route-tree .x-column-header {
+    background: var(--pt-bg-alt) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--pt-text-muted) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
 /* ==========================================================================
-   5. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   5. НОВОЕ: ПАНЕЛЬ РЕДАКТИРОВАНИЯ МАРШРУТА
+   ========================================================================== */
+.pt-route-edit-panel {
+    background: var(--pt-bg);
+}
+
+.pt-route-edit-panel .x-panel-body {
+    background: var(--pt-bg) !important;
+}
+
+.pt-route-edit-panel .x-form-item-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 12px !important;
+}
+
+.pt-route-edit-panel .x-form-text {
+    border-radius: var(--pt-radius-sm) !important;
+    border: 1px solid var(--pt-border) !important;
+    transition: var(--pt-transition-fast);
+    font-size: 13px !important;
+    padding: 5px 9px !important;
+}
+
+.pt-route-edit-panel .x-form-text:focus {
+    border-color: var(--pt-primary) !important;
+    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
+    outline: none;
+}
+
+/* Заголовок панели */
+.pt-route-edit-header {
+    margin-bottom: 12px;
+}
+
+.pt-route-edit-header-inner {
+    padding: 10px 12px;
+    background: linear-gradient(135deg, var(--pt-primary) 0%, var(--pt-primary-hover) 100%);
+    color: #fff;
+    border-radius: var(--pt-radius-md);
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: var(--pt-shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pt-route-edit-header-inner.pt-mode-edit {
+    background: linear-gradient(135deg, var(--pt-success) 0%, var(--pt-success-hover) 100%);
+}
+
+.pt-route-edit-header-inner .fa {
+    font-size: 16px;
+}
+
+/* Fieldsets - группы полей */
+.pt-route-edit-panel .x-fieldset {
+    border: 1px solid var(--pt-border) !important;
+    border-radius: var(--pt-radius-md) !important;
+    margin-bottom: 12px !important;
+    padding: 12px !important;
+    padding-top: 22px !important;
+    background: var(--pt-bg-alt) !important;
+    position: relative;
+}
+
+.pt-route-edit-panel .x-fieldset-header {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background: var(--pt-bg-alt);
+    padding: 0 8px;
+    z-index: 1;
+}
+
+.pt-route-edit-panel .x-fieldset-header-text {
+    font-weight: 700 !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pt-fieldset-primary .x-fieldset-header-text {
+    color: var(--pt-primary) !important;
+}
+
+.pt-fieldset-tech .x-fieldset-header-text {
+    color: var(--pt-info) !important;
+}
+
+.pt-fieldset-equipment .x-fieldset-header-text {
+    color: var(--pt-warning) !important;
+}
+
+.pt-fieldset-classification .x-fieldset-header-text {
+    color: var(--pt-success) !important;
+}
+
+/* ==========================================================================
+   6. НОВОЕ: TOGGLE-ПЕРЕКЛЮЧАТЕЛИ (СЛАЙДЕРЫ)
+   ========================================================================== */
+.pt-toggle-row {
+    margin-bottom: 10px !important;
+    align-items: center !important;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--pt-border);
+}
+
+.pt-toggle-row:last-child {
+    border-bottom: none;
+}
+
+.pt-toggle-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 13px !important;
+    line-height: 24px !important;
+}
+
+/* Скрываем стандартный checkbox */
+.pt-toggle-switch {
+    margin: 0 !important;
+}
+
+.pt-toggle-switch .x-form-cb-wrap {
+    width: 44px !important;
+    height: 24px !important;
+    position: relative;
+    display: inline-block;
+}
+
+.pt-toggle-switch .x-form-cb {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+
+/* Трек слайдера */
+.pt-toggle-switch .x-form-cb-wrap::after {
+    content: '';
+    display: block;
+    width: 44px;
+    height: 24px;
+    background: var(--pt-border-strong);
+    border-radius: 12px;
+    position: relative;
+    cursor: pointer;
+    transition: var(--pt-transition-fast);
+    vertical-align: middle;
+}
+
+/* Ползунок слайдера */
+.pt-toggle-switch .x-form-cb-wrap::before {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: var(--pt-transition-fast);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Checked state - включенное состояние */
+.pt-toggle-switch.x-form-cb-checked .x-form-cb-wrap::after {
+    background: var(--pt-success);
+}
+
+.pt-toggle-switch.x-form-cb-checked .x-form-cb-wrap::before {
+    left: 22px;
+}
+
+/* Hover */
+.pt-toggle-switch:hover .x-form-cb-wrap::after {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.pt-toggle-switch.x-form-cb-checked:hover .x-form-cb-wrap::after {
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.25);
+}
+
+/* ==========================================================================
+   7. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ МАРШРУТА
+   ========================================================================== */
+.pt-route-edit-actions .pt-btn-save {
+    background: var(--pt-success) !important;
+    border-color: var(--pt-success) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    border-radius: var(--pt-radius-sm) !important;
+    padding: 8px 16px !important;
+    transition: var(--pt-transition-fast) !important;
+}
+
+.pt-route-edit-actions .pt-btn-save:hover {
+    background: var(--pt-success-hover) !important;
+    border-color: var(--pt-success-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--pt-shadow);
+}
+
+.pt-route-edit-actions .pt-btn-cancel {
+    background: var(--pt-bg) !important;
+    border: 1px solid var(--pt-border) !important;
+    color: var(--pt-text) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    padding: 8px 16px !important;
+}
+
+.pt-route-edit-actions .pt-btn-cancel:hover {
+    background: var(--pt-bg-hover) !important;
+    border-color: var(--pt-border-strong) !important;
+}
+
+/* ==========================================================================
+   8. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
    ========================================================================== */
 .pt-vehicles-grid {
     background: var(--pt-bg);
@@ -296,7 +533,7 @@
 }
 
 /* ==========================================================================
-   6. СПРАВОЧНИК ОСТАНОВОК
+   9. СПРАВОЧНИК ОСТАНОВОК
    ========================================================================== */
 .pt-stops-catalog-panel {
     background: var(--pt-bg);
@@ -366,7 +603,7 @@
 }
 
 /* ==========================================================================
-   7. МАРКЕРЫ-ПОЗИЦИИ ОСТАНОВОК СПРАВОЧНИКА (pin-иконки на карте)
+   10. МАРКЕРЫ-ПОЗИЦИИ ОСТАНОВОК (pin-иконки на карте)
    ========================================================================== */
 .pt-catalog-stop-pin {
     background: transparent !important;
@@ -390,7 +627,7 @@
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* SVG-подобная форма маркера через clip-path */
+/* Форма маркера через clip-path */
 .pt-catalog-stop-pin-inner::before {
     content: '';
     position: absolute;
@@ -411,7 +648,7 @@
 }
 
 /* ==========================================================================
-   8. КНОПКИ ДЕЙСТВИЙ В СТРОКАХ ГРИДА ОСТАНОВОК
+   11. КНОПКИ ДЕЙСТВИЙ В СТРОКАХ ГРИДА ОСТАНОВОК
    ========================================================================== */
 .pt-stop-actions-cell {
     display: flex;
@@ -451,7 +688,7 @@
     transform: scale(1.1);
 }
 
-/* Подсветка кнопок при наведении на строку */
+/* Прозрачность кнопок, проявляющаяся при наведении на строку */
 .pt-stops-catalog-panel .pt-btn-focus-stop,
 .pt-stops-catalog-panel .pt-btn-edit-stop {
     opacity: 0.6;
@@ -463,7 +700,7 @@
 }
 
 /* ==========================================================================
-   9. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
+   12. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-edit-panel {
     background: var(--pt-bg);
@@ -545,7 +782,7 @@
 }
 
 /* ==========================================================================
-   10. СЕКЦИЯ RFID МЕТКИ
+   13. RFID СЕКЦИЯ
    ========================================================================== */
 .pt-rfid-selector {
     margin-bottom: 12px;
@@ -628,7 +865,7 @@
 }
 
 /* ==========================================================================
-   11. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
+   14. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-edit-actions .pt-btn-save {
     background: var(--pt-success) !important;
@@ -661,7 +898,7 @@
 }
 
 /* ==========================================================================
-   12. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+   15. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
    ========================================================================== */
 .pt-rfid-select-window {
     border-radius: var(--pt-radius-lg) !important;
@@ -744,7 +981,7 @@
 }
 
 /* ==========================================================================
-   13. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
+   16. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
    ========================================================================== */
 .pt-stop-edit-center {
     background: transparent !important;
@@ -791,7 +1028,7 @@
 }
 
 /* ==========================================================================
-   14. ГЕОЗОНЫ ОСТАНОВОК МАРШРУТА НА КАРТЕ
+   17. ГЕОЗОНЫ ОСТАНОВОК МАРШРУТА НА КАРТЕ
    ========================================================================== */
 
 /* Подпись остановки маршрута (с номером) */
@@ -840,7 +1077,7 @@
 }
 
 /* ==========================================================================
-   15. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
+   18. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
    ========================================================================== */
 .pt-floating-memo-panel,
 .pt-floating-timeline-panel {
@@ -885,7 +1122,7 @@
 }
 
 /* ==========================================================================
-   16. МНЕМОСХЕМА
+   19. МНЕМОСХЕМА
    ========================================================================== */
 .pt-memo-panel {
     background: var(--pt-bg);
@@ -1024,7 +1261,7 @@
 }
 
 /* ==========================================================================
-   17. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
+   20. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
    ========================================================================== */
 .pt-timeline-panel {
     background: var(--pt-bg);
@@ -1041,7 +1278,7 @@
 }
 
 /* ==========================================================================
-   18. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ МАРШРУТА
+   21. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -1071,7 +1308,7 @@
 }
 
 /* ==========================================================================
-   19. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
+   22. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
    ========================================================================== */
 .pt-vehicle-marker {
     background: transparent !important;
@@ -1134,7 +1371,7 @@
 }
 
 /* ==========================================================================
-   20. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   23. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -1185,7 +1422,7 @@
 }
 
 /* ==========================================================================
-   21. ДИАЛОГ ПРИВЯЗКИ ТС
+   24. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -1234,7 +1471,7 @@
 }
 
 /* ==========================================================================
-   22. КНОПКА В ХЕДЕРЕ PILOT
+   25. КНОПКА В ХЕДЕРЕ PILOT
    ========================================================================== */
 .passenger_transit-header-btn {
     background: transparent !important;
@@ -1255,7 +1492,7 @@
 }
 
 /* ==========================================================================
-   23. TOAST-УВЕДОМЛЕНИЯ
+   26. TOAST-УВЕДОМЛЕНИЯ
    ========================================================================== */
 .x-toast {
     border-radius: var(--pt-radius-md) !important;
@@ -1273,7 +1510,7 @@
 }
 
 /* ==========================================================================
-   24. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
+   27. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
    ========================================================================== */
 .x-message-box {
     border-radius: var(--pt-radius-md) !important;
@@ -1308,7 +1545,7 @@
 }
 
 /* ==========================================================================
-   25. ОБЩИЕ КНОПКИ
+   28. ОБЩИЕ КНОПКИ
    ========================================================================== */
 .pt-btn-primary {
     background: var(--pt-primary) !important;
@@ -1322,13 +1559,14 @@
 }
 
 /* ==========================================================================
-   26. СКРОЛЛБАРЫ
+   29. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
 .pt-route-tree ::-webkit-scrollbar,
 .pt-vehicles-grid ::-webkit-scrollbar,
 .pt-stops-catalog-panel ::-webkit-scrollbar,
-.pt-stop-edit-panel ::-webkit-scrollbar {
+.pt-stop-edit-panel ::-webkit-scrollbar,
+.pt-route-edit-panel ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
@@ -1337,7 +1575,8 @@
 .pt-route-tree ::-webkit-scrollbar-track,
 .pt-vehicles-grid ::-webkit-scrollbar-track,
 .pt-stops-catalog-panel ::-webkit-scrollbar-track,
-.pt-stop-edit-panel ::-webkit-scrollbar-track {
+.pt-stop-edit-panel ::-webkit-scrollbar-track,
+.pt-route-edit-panel ::-webkit-scrollbar-track {
     background: var(--pt-bg-alt);
     border-radius: 4px;
 }
@@ -1346,7 +1585,8 @@
 .pt-route-tree ::-webkit-scrollbar-thumb,
 .pt-vehicles-grid ::-webkit-scrollbar-thumb,
 .pt-stops-catalog-panel ::-webkit-scrollbar-thumb,
-.pt-stop-edit-panel ::-webkit-scrollbar-thumb {
+.pt-stop-edit-panel ::-webkit-scrollbar-thumb,
+.pt-route-edit-panel ::-webkit-scrollbar-thumb {
     background: var(--pt-border-strong);
     border-radius: 4px;
     transition: var(--pt-transition-fast);
@@ -1356,12 +1596,13 @@
 .pt-route-tree ::-webkit-scrollbar-thumb:hover,
 .pt-vehicles-grid ::-webkit-scrollbar-thumb:hover,
 .pt-stops-catalog-panel ::-webkit-scrollbar-thumb:hover,
-.pt-stop-edit-panel ::-webkit-scrollbar-thumb:hover {
+.pt-stop-edit-panel ::-webkit-scrollbar-thumb:hover,
+.pt-route-edit-panel ::-webkit-scrollbar-thumb:hover {
     background: var(--pt-primary);
 }
 
 /* ==========================================================================
-   27. АДАПТИВНОСТЬ
+   30. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -1393,6 +1634,10 @@
     .pt-memo-stop-name {
         font-size: 12px;
     }
+
+    .pt-route-edit-panel .x-fieldset {
+        padding: 10px !important;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1415,10 +1660,15 @@
         width: 95vw !important;
         max-width: 650px !important;
     }
+
+    .pt-toggle-label {
+        width: 140px !important;
+        font-size: 12px !important;
+    }
 }
 
 /* ==========================================================================
-   28. АНИМАЦИИ
+   31. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -1454,7 +1704,8 @@
 .pt-memo-stop:nth-child(9) { animation-delay: 0.18s; }
 .pt-memo-stop:nth-child(10) { animation-delay: 0.20s; }
 
-.pt-stop-edit-panel {
+.pt-stop-edit-panel,
+.pt-route-edit-panel {
     animation: pt-fade-in 0.25s ease-out;
 }
 
@@ -1465,7 +1716,7 @@
 }
 
 /* ==========================================================================
-   29. УТИЛИТЫ
+   32. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -1484,7 +1735,7 @@
 .pt-text-rfid { color: var(--pt-rfid); }
 
 /* ==========================================================================
-   30. ПЕЧАТЬ
+   33. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
