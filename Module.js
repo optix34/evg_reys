@@ -14,10 +14,9 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     state: {
-        // Текущая активная панель: 'routes' | 'stops' | 'stop-edit'
-        currentPanel: 'routes',
+        currentPanel: 'routes',      // 'routes' | 'stops' | 'stop-edit'
 
-        // Справочник остановок
+        // Справочник остановок (независимая сущность)
         stopsCatalog: [],
 
         // RFID метки
@@ -31,13 +30,13 @@ Ext.define('Store.passenger_transit.Module', {
         // Слои карты
         mapLayers: {
             routes: {},
-            stopsCatalog: {},
-            routeStops: {},
+            stopsCatalog: {},        // Маркеры-позиции остановок справочника
+            routeStops: {},          // Остановки выбранного маршрута
             vehicles: {},
             tracks: {},
             editingPolyline: null,
             editingPoints: [],
-            editingStopZone: null
+            editingStopZone: null    // Геозона редактируемой остановки
         },
 
         // Режимы
@@ -91,29 +90,19 @@ Ext.define('Store.passenger_transit.Module', {
         // ========================================================================
 
         // Дерево маршрутов (верхняя часть левой панели)
-        me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', {
-            module: me
-        });
+        me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', { module: me });
 
-        // ========================================================================
-        // ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
-        // ========================================================================
-        me.vehiclesGrid = Ext.create('Store.passenger_transit.view.RouteVehiclesGrid', {
-            module: me
-        });
+        // Грид ТС маршрута (нижняя часть левой панели)
+        me.vehiclesGrid = Ext.create('Store.passenger_transit.view.RouteVehiclesGrid', { module: me });
 
-        // Справочник остановок (отдельная панель)
-        me.stopsCatalogPanel = Ext.create('Store.passenger_transit.view.StopsCatalogPanel', {
-            module: me
-        });
+        // Справочник остановок
+        me.stopsCatalogPanel = Ext.create('Store.passenger_transit.view.StopsCatalogPanel', { module: me });
 
         // Панель редактирования остановки
-        me.stopEditPanel = Ext.create('Store.passenger_transit.view.StopEditPanel', {
-            module: me
-        });
+        me.stopEditPanel = Ext.create('Store.passenger_transit.view.StopEditPanel', { module: me });
 
         // ========================================================================
-        // КОНТЕЙНЕР ДЛЯ РЕЖИМА МАРШРУТОВ: МАРШРУТЫ + ТС (ВЕРХ / НИЗ)
+        // КОНТЕЙНЕР ДЛЯ РЕЖИМА "МАРШРУТЫ": ДЕРЕВО + ГРИД ТС
         // ========================================================================
         me.routesContent = Ext.create('Ext.panel.Panel', {
             layout: 'border',
@@ -141,7 +130,7 @@ Ext.define('Store.passenger_transit.Module', {
             ]
         });
 
-        // Контейнер с card-переключением между режимами
+        // Card-контейнер для переключения между режимами
         me.leftContent = Ext.create('Ext.panel.Panel', {
             layout: 'card',
             border: false,
@@ -158,7 +147,6 @@ Ext.define('Store.passenger_transit.Module', {
                 {
                     text: l('Маршруты'),
                     iconCls: 'fa fa-route',
-                    itemId: 'btnRoutes',
                     enableToggle: true,
                     toggleGroup: 'panelSwitch',
                     pressed: true,
@@ -168,7 +156,6 @@ Ext.define('Store.passenger_transit.Module', {
                 {
                     text: l('Остановки'),
                     iconCls: 'fa fa-map-marker',
-                    itemId: 'btnStops',
                     enableToggle: true,
                     toggleGroup: 'panelSwitch',
                     flex: 1,
@@ -184,18 +171,18 @@ Ext.define('Store.passenger_transit.Module', {
             items: [me.leftContent]
         });
 
-        // Create navigation tab
+        // Navigation tab
         me.navTab = Ext.create('Pilot.utils.LeftBarPanel', {
             title: l('Рейсы'),
             iconCls: 'fa fa-bus',
             iconAlign: 'top',
             minimized: false,
-            width: 400,
+            width: 420,
             layout: 'fit',
             items: [me.navContainer]
         });
 
-        // Карта PILOT остается видимой
+        // ВАЖНО: НЕ устанавливаем map_frame, чтобы карта PILOT оставалась видимой
         me.navTab.map_frame = null;
 
         // Integrate with PILOT skeleton
@@ -231,7 +218,9 @@ Ext.define('Store.passenger_transit.Module', {
             me.loadRoutes();
             me.loadVehiclesFromPilot();
 
+            // Создаем плавающие панели (мнемосхема и график) после инициализации
             setTimeout(function() {
+                me.createFloatingPanels();
                 if (skeleton.navigation.getActiveTab && skeleton.navigation.getActiveTab() === me.navTab) {
                     me.onTabActivated();
                 }
@@ -261,10 +250,59 @@ Ext.define('Store.passenger_transit.Module', {
     onTabActivated: function() {
         this.state.isTabActive = true;
         this.drawAllCatalogStops();
+        this.showFloatingPanels();
     },
 
     onTabDeactivated: function() {
         this.state.isTabActive = false;
+        this.clearAllCatalogStops();
+        this.hideFloatingPanels();
+    },
+
+    // ==================== ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК) ====================
+
+    showFloatingPanels: function() {
+        var me = this;
+        if (me.memoWindow && !me.memoWindow.isVisible()) me.memoWindow.show();
+        if (me.timelineWindow && !me.timelineWindow.isVisible()) me.timelineWindow.show();
+    },
+
+    hideFloatingPanels: function() {
+        var me = this;
+        if (me.memoWindow && me.memoWindow.isVisible()) me.memoWindow.hide();
+        if (me.timelineWindow && me.timelineWindow.isVisible()) me.timelineWindow.hide();
+    },
+
+    createFloatingPanels: function() {
+        var me = this;
+
+        me.memoPanel = Ext.create('Store.passenger_transit.view.RouteMemoPanel', { module: me });
+        me.memoWindow = Ext.create('Ext.window.Window', {
+            title: l('Мнемосхема'),
+            width: 320, height: 500,
+            x: window.innerWidth - 340, y: 100,
+            collapsible: true, collapseDirection: 'right',
+            closeAction: 'hide', layout: 'fit',
+            cls: 'pt-floating-memo-panel',
+            items: [me.memoPanel],
+            listeners: {
+                beforeclose: function(win) { win.hide(); return false; }
+            }
+        });
+
+        me.timelinePanel = Ext.create('Store.passenger_transit.view.TimelinePanel', { module: me });
+        me.timelineWindow = Ext.create('Ext.window.Window', {
+            title: l('График рейсов'),
+            width: 600, height: 250,
+            x: (window.innerWidth - 620) / 2, y: window.innerHeight - 270,
+            collapsible: true, collapseDirection: 'down',
+            closeAction: 'hide', layout: 'fit',
+            cls: 'pt-floating-timeline-panel',
+            items: [me.timelinePanel],
+            listeners: {
+                beforeclose: function(win) { win.hide(); return false; }
+            }
+        });
     },
 
     // ==================== PILOT API INTEGRATION ====================
@@ -307,9 +345,7 @@ Ext.define('Store.passenger_transit.Module', {
         return vehicles;
     },
 
-    // ========================================================================
-    // RFID МЕТКИ
-    // ========================================================================
+    // ==================== RFID МЕТКИ ====================
 
     loadRfidTags: function () {
         var me = this;
@@ -318,24 +354,13 @@ Ext.define('Store.passenger_transit.Module', {
             method: 'GET',
             success: function (resp) {
                 var data = Ext.decode(resp.responseText);
-                if (data.success) {
-                    me.state.rfidTags = data.tags || [];
-                }
+                if (data.success) me.state.rfidTags = data.tags || [];
             },
-            failure: function () {
-                Ext.log('passenger_transit: failed to load RFID tags');
-            }
+            failure: function () { Ext.log('passenger_transit: failed to load RFID tags'); }
         });
     },
 
-    getRfidTagById: function(tagId) {
-        if (!tagId) return null;
-        return this.state.rfidTags.find(function(t) { return t.id === tagId; }) || null;
-    },
-
-    // ========================================================================
-    // СПРАВОЧНИК ОСТАНОВОК
-    // ========================================================================
+    // ==================== СПРАВОЧНИК ОСТАНОВОК ====================
 
     loadStopsCatalog: function () {
         var me = this;
@@ -347,12 +372,10 @@ Ext.define('Store.passenger_transit.Module', {
                 if (data.success) {
                     me.state.stopsCatalog = data.stops || [];
                     me.refreshStopsCatalogPanel();
-                    me.drawAllCatalogStops();
+                    if (me.state.isTabActive) me.drawAllCatalogStops();
                 }
             },
-            failure: function () {
-                Ext.log('passenger_transit: failed to load stops catalog');
-            }
+            failure: function () { Ext.log('passenger_transit: failed to load stops catalog'); }
         });
     },
 
@@ -365,16 +388,14 @@ Ext.define('Store.passenger_transit.Module', {
             success: function (resp) {
                 var data = Ext.decode(resp.responseText);
                 if (data.success) {
-                    Ext.toast({ html: l('Остановка добавлена в справочник'), align: 't', timeout: 2500 });
+                    Ext.toast({ html: l('Остановка добавлена'), align: 't', timeout: 2500 });
                     me.loadStopsCatalog();
                     me.switchPanel('stops');
                 } else {
                     Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось добавить'));
                 }
             },
-            failure: function () {
-                Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения с сервером'));
-            }
+            failure: function () { Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения')); }
         });
     },
 
@@ -394,9 +415,7 @@ Ext.define('Store.passenger_transit.Module', {
                     Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось обновить'));
                 }
             },
-            failure: function () {
-                Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения с сервером'));
-            }
+            failure: function () { Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения')); }
         });
     },
 
@@ -404,7 +423,7 @@ Ext.define('Store.passenger_transit.Module', {
         var me = this;
         Ext.Msg.confirm(
             l('Удаление остановки'),
-            l('Вы уверены, что хотите удалить остановку из справочника?'),
+            l('Вы уверены, что хотите удалить остановку?'),
             function (btn) {
                 if (btn === 'yes') {
                     Ext.Ajax.request({
@@ -426,7 +445,7 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     // ========================================================================
-    // ОТОБРАЖЕНИЕ ГЕОЗОН НА КАРТЕ
+    // ОТОБРАЖЕНИЕ ОСТАНОВОК НА КАРТЕ (МАРКЕРЫ-ПОЗИЦИИ)
     // ========================================================================
 
     drawAllCatalogStops: function() {
@@ -435,40 +454,37 @@ Ext.define('Store.passenger_transit.Module', {
         if (!map || !map.map) return;
 
         me.clearAllCatalogStops();
-
         me.state.stopsCatalog.forEach(function(stop) {
             me.drawCatalogStop(stop);
         });
     },
 
+    /**
+     * Рисует остановку как МАРКЕР-ПОЗИЦИЮ (pin).
+     * При клике — карта центрируется на остановке.
+     */
     drawCatalogStop: function(stop) {
         var me = this;
         var map = me.getPilotMap();
         if (!map || !map.map) return;
 
-        var circle = L.circle([stop.lat, stop.lon], {
-            radius: stop.radius || 30,
-            color: '#94a3b8',
-            fillColor: '#cbd5e1',
-            fillOpacity: 0.3,
-            weight: 2,
-            className: 'pt-catalog-stop-zone'
+        var icon = L.divIcon({
+            className: 'pt-catalog-stop-pin',
+            html: '<div class="pt-catalog-stop-pin-inner" title="' + Ext.String.htmlEncode(stop.name) + '">' +
+                  '<i class="fa fa-map-marker"></i>' +
+                  '</div>',
+            iconSize: [30, 42],
+            iconAnchor: [15, 42],
+            popupAnchor: [0, -42]
+        });
+
+        var marker = L.marker([stop.lat, stop.lon], {
+            icon: icon,
+            title: stop.name,
+            zIndexOffset: 100
         }).addTo(map.map);
 
-        var label = L.marker([stop.lat, stop.lon], {
-            icon: L.divIcon({
-                className: 'pt-catalog-stop-label',
-                html: '<div class="pt-catalog-stop-label-inner">' +
-                      '<i class="fa fa-map-marker"></i> ' +
-                      '<span>' + Ext.String.htmlEncode(stop.name) + '</span>' +
-                      (stop.rfid_code ? ' <i class="fa fa-microchip pt-rfid-mini-icon" title="RFID: ' + Ext.String.htmlEncode(stop.rfid_code) + '"></i>' : '') +
-                      '</div>',
-                iconSize: [0, 0],
-                iconAnchor: [0, -25]
-            }),
-            interactive: false
-        }).addTo(map.map);
-
+        // Popup с информацией
         var popupHtml = '<div class="pt-stop-popup">' +
             '<b>' + Ext.String.htmlEncode(stop.name) + '</b>';
         if (stop.identifier) {
@@ -480,17 +496,16 @@ Ext.define('Store.passenger_transit.Module', {
             popupHtml += '<br/><small><i class="fa fa-microchip"></i> RFID: <b>' + Ext.String.htmlEncode(stop.rfid_code) + '</b></small>';
         }
         popupHtml += '</div>';
+        marker.bindPopup(popupHtml);
 
-        circle.bindPopup(popupHtml);
-
-        circle.on('dblclick', function(e) {
+        // КЛИК ПО МАРКЕРУ — центрируем карту на остановке
+        marker.on('click', function(e) {
             L.DomEvent.stopPropagation(e);
-            me.showEditStop(stop);
+            map.map.setView([stop.lat, stop.lon], 17, { animate: true });
         });
 
         me.state.mapLayers.stopsCatalog[stop.id] = {
-            circle: circle,
-            label: label,
+            marker: marker,
             data: stop
         };
     },
@@ -502,10 +517,27 @@ Ext.define('Store.passenger_transit.Module', {
 
         Object.keys(me.state.mapLayers.stopsCatalog).forEach(function(key) {
             var layer = me.state.mapLayers.stopsCatalog[key];
-            if (layer.circle) map.map.removeLayer(layer.circle);
-            if (layer.label) map.map.removeLayer(layer.label);
+            if (layer.marker) map.map.removeLayer(layer.marker);
         });
         me.state.mapLayers.stopsCatalog = {};
+    },
+
+    removeCatalogStopMarker: function(stopId) {
+        var me = this;
+        var map = me.getPilotMap();
+        if (!map || !map.map) return;
+        var layer = me.state.mapLayers.stopsCatalog[stopId];
+        if (layer && layer.marker) {
+            map.map.removeLayer(layer.marker);
+            delete me.state.mapLayers.stopsCatalog[stopId];
+        }
+    },
+
+    restoreCatalogStopMarker: function(stop) {
+        var me = this;
+        if (!me.state.mapLayers.stopsCatalog[stop.id]) {
+            me.drawCatalogStop(stop);
+        }
     },
 
     refreshStopsCatalogPanel: function() {
@@ -515,7 +547,7 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     // ========================================================================
-    // РЕЖИМ ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ ОСТАНОВКИ
+    // РЕЖИМ ДОБАВЛЕНИЯ НОВОЙ ОСТАНОВКИ
     // ========================================================================
 
     enterAddStopMode: function() {
@@ -554,16 +586,42 @@ Ext.define('Store.passenger_transit.Module', {
         });
     },
 
-    showEditStop: function(stop) {
+    // ========================================================================
+    // РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕЙ ОСТАНОВКИ
+    // При нажатии "Редактировать" — маркер заменяется на геозону
+    // ========================================================================
+
+    editCatalogStop: function(stop) {
         var me = this;
         me.state.editingStop = stop;
         me.exitAddStopMode();
 
+        // Удаляем маркер с карты
+        me.removeCatalogStopMarker(stop.id);
+
+        // Переключаемся на панель редактирования
         me.switchPanel('stop-edit');
         me.stopEditPanel.setMode('edit');
         me.stopEditPanel.loadStopData(stop);
 
+        // Создаём геозону для редактирования
         me._createEditingZone(stop.lat, stop.lon, stop.radius || 30);
+
+        // Центрируем карту на остановке
+        var map = me.getPilotMap();
+        if (map && map.map) {
+            map.map.setView([stop.lat, stop.lon], 17, { animate: true });
+        }
+    },
+
+    /**
+     * Центрирует карту на остановке (без редактирования)
+     */
+    focusOnStop: function(stop) {
+        var map = this.getPilotMap();
+        if (map && map.map) {
+            map.map.setView([stop.lat, stop.lon], 17, { animate: true });
+        }
     },
 
     exitAddStopMode: function() {
@@ -696,14 +754,19 @@ Ext.define('Store.passenger_transit.Module', {
 
     cancelStopEdit: function() {
         var me = this;
+        var editingStop = me.state.editingStop;
         me.state.editingStop = null;
         me.exitAddStopMode();
+
+        // Если редактировали существующую остановку — восстанавливаем её маркер
+        if (editingStop) {
+            me.restoreCatalogStopMarker(editingStop);
+        }
+
         me.switchPanel('stops');
     },
 
-    // ========================================================================
-    // МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
-    // ========================================================================
+    // ==================== RFID SELECT ====================
 
     showRfidSelectWindow: function(currentTagId, callback) {
         var me = this;
@@ -713,20 +776,14 @@ Ext.define('Store.passenger_transit.Module', {
             method: 'GET',
             success: function (resp) {
                 var data = Ext.decode(resp.responseText);
-                if (data.success) {
-                    me.state.rfidTags = data.tags || [];
-                }
+                if (data.success) me.state.rfidTags = data.tags || [];
 
                 var win = Ext.create('Store.passenger_transit.view.RfidSelectWindow', {
                     module: me,
                     currentTagId: currentTagId,
                     listeners: {
-                        select: function(w, tag) {
-                            if (callback) callback(tag);
-                        },
-                        clear: function() {
-                            if (callback) callback(null);
-                        },
+                        select: function(w, tag) { if (callback) callback(tag); },
+                        clear: function() { if (callback) callback(null); },
                         createTag: function(w, tagData) {
                             Ext.Ajax.request({
                                 url: me.getBackendUrl('rfid-tags'),
@@ -751,7 +808,7 @@ Ext.define('Store.passenger_transit.Module', {
         });
     },
 
-    // ==================== BACKEND API CALLS ====================
+    // ==================== МАРШРУТЫ ====================
 
     loadRoutes: function () {
         var me = this;
@@ -765,58 +822,116 @@ Ext.define('Store.passenger_transit.Module', {
                     me.refreshRouteTree();
                 }
             },
-            failure: function () {
-                Ext.log('passenger_transit: failed to load routes from backend');
-            }
+            failure: function () { Ext.log('passenger_transit: failed to load routes'); }
         });
     },
 
-    createRoute: function (name) {
+    getRouteById: function (routeId) {
+        var found = null;
+        Ext.each(this.state.routes, function (r) {
+            if (r.id == routeId) { found = r; return false; }
+        });
+        return found;
+    },
+
+    refreshRouteTree: function () {
+        if (this.routeTree) this.routeTree.loadRoutes(this.state.routes);
+    },
+
+    selectRoute: function (routeId) {
         var me = this;
-        Ext.Ajax.request({
-            url: me.getBackendUrl('routes'),
-            method: 'POST',
-            jsonData: { name: name },
-            success: function (resp) {
-                var data = Ext.decode(resp.responseText);
-                if (data.success) me.loadRoutes();
-            }
+        me.state.selectedRoute = routeId;
+        var route = me.getRouteById(routeId);
+        if (!route) return;
+
+        me.clearRouteLayers(routeId);
+        me.drawRoute(routeId, route.forward_points, route.backward_points);
+
+        if (route.stops && route.stops.length > 0) {
+            me.drawRouteStops(routeId, route.stops);
+        }
+
+        // Обновляем мнемосхему и график
+        if (me.memoPanel) me.memoPanel.loadRoute(route);
+        if (me.timelinePanel) me.timelinePanel.renderChart(me.getTimeline(routeId));
+
+        // Обновляем грид ТС
+        me.updateRouteVehiclesGrid(routeId);
+    },
+
+    drawRouteStops: function(routeId, stops) {
+        var me = this;
+        var map = me.getPilotMap();
+        if (!map || !map.map) return;
+
+        stops.forEach(function(stop, index) {
+            var color = stop.direction === 'forward' ? '#2563eb' : '#dc2626';
+            var circle = L.circle([stop.lat, stop.lon], {
+                radius: stop.radius || 30,
+                color: color, fillColor: color, fillOpacity: 0.25, weight: 3
+            }).addTo(map.map);
+
+            var label = L.marker([stop.lat, stop.lon], {
+                icon: L.divIcon({
+                    className: 'pt-route-stop-label',
+                    html: '<div class="pt-route-stop-label-inner" style="background:' + color + '">' +
+                          (index + 1) + '</div>',
+                    iconSize: [24, 24], iconAnchor: [12, 12]
+                })
+            }).addTo(map.map);
+
+            if (!me.state.mapLayers.routeStops[routeId]) me.state.mapLayers.routeStops[routeId] = [];
+            me.state.mapLayers.routeStops[routeId].push({ circle: circle, label: label });
         });
     },
 
-    addStop: function (routeId, stop) {
-        var me = this;
-        Ext.Ajax.request({
-            url: me.getBackendUrl('stops'),
-            method: 'POST',
-            jsonData: { route_id: routeId, stop: stop },
-            success: function (resp) {
-                var data = Ext.decode(resp.responseText);
-                if (data.success) me.selectRoute(routeId);
-            }
-        });
+    drawRoute: function (routeId, forwardPoints, backwardPoints) {
+        var map = this.getPilotMap();
+        if (!map || !map.map) return;
+        this.clearRoutePolylines(routeId);
+
+        if (forwardPoints && forwardPoints.length > 1) {
+            var latlngs = forwardPoints.map(function (p) { return [p.lat, p.lon || p.lng]; });
+            var line = L.polyline(latlngs, { color: '#2563eb', weight: 4, opacity: 0.85 }).addTo(map.map);
+            this.state.mapLayers.routes[routeId + '_forward'] = line;
+        }
+        if (backwardPoints && backwardPoints.length > 1) {
+            var latlngs = backwardPoints.map(function (p) { return [p.lat, p.lon || p.lng]; });
+            var line = L.polyline(latlngs, { color: '#dc2626', weight: 4, opacity: 0.85, dashArray: '8, 6' }).addTo(map.map);
+            this.state.mapLayers.routes[routeId + '_backward'] = line;
+        }
     },
 
-    saveRoutePoints: function (routeId, points, direction) {
-        var me = this;
-        Ext.Ajax.request({
-            url: me.getBackendUrl('route-points'),
-            method: 'POST',
-            jsonData: { route_id: routeId, direction: direction, points: points },
-            success: function (resp) {
-                var data = Ext.decode(resp.responseText);
-                if (data.success) {
-                    Ext.toast({ html: l('Маршрут сохранен'), align: 't', timeout: 3000 });
-                    me.loadRoutes();
-                } else {
-                    Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось сохранить'));
-                }
-            },
-            failure: function () {
-                Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения с бэкендом'));
-            }
-        });
+    clearRouteLayers: function(routeId) {
+        this.clearRoutePolylines(routeId);
+        this.clearRouteStops(routeId);
     },
+
+    clearRoutePolylines: function(routeId) {
+        var map = this.getPilotMap();
+        if (!map || !map.map) return;
+        ['forward', 'backward'].forEach(function (dir) {
+            var key = routeId + '_' + dir;
+            if (this.state.mapLayers.routes[key]) {
+                map.map.removeLayer(this.state.mapLayers.routes[key]);
+                delete this.state.mapLayers.routes[key];
+            }
+        }.bind(this));
+    },
+
+    clearRouteStops: function(routeId) {
+        var map = this.getPilotMap();
+        if (!map || !map.map) return;
+        if (this.state.mapLayers.routeStops[routeId]) {
+            this.state.mapLayers.routeStops[routeId].forEach(function(item) {
+                if (item.circle) map.map.removeLayer(item.circle);
+                if (item.label) map.map.removeLayer(item.label);
+            });
+            delete this.state.mapLayers.routeStops[routeId];
+        }
+    },
+
+    // ==================== ТС ====================
 
     getRouteVehicles: function (routeId) {
         var me = this;
@@ -889,13 +1004,9 @@ Ext.define('Store.passenger_transit.Module', {
         return timeline;
     },
 
-    // ========================================================================
-    // ОБНОВЛЕНИЕ ГРИДА ТС МАРШРУТА
-    // ========================================================================
     updateRouteVehiclesGrid: function(routeId) {
         var me = this;
         if (!me.vehiclesGrid) return;
-
         me.vehiclesGrid.getStore().removeAll();
         if (!routeId) return;
 
@@ -927,6 +1038,116 @@ Ext.define('Store.passenger_transit.Module', {
         me.vehiclesGrid.getStore().loadData(gridData);
     },
 
+    selectVehicle: function (vehicleId, routeId) {
+        var me = this;
+        me.state.selectedVehicle = vehicleId;
+        var trackInfo = me.getVehicleTrack(vehicleId, routeId);
+        var map = me.getPilotMap();
+        if (map && map.map && trackInfo.track.length > 0) {
+            var bounds = L.latLngBounds(trackInfo.track.map(function(p) { return [p.lat, p.lon]; }));
+            map.map.fitBounds(bounds, { padding: [50, 50] });
+        }
+        Ext.Msg.alert(
+            l('ТС') + ' ' + vehicleId,
+            l('Выполнено рейсов') + ': <b>' + (trackInfo.trips_count || 0) + '</b>'
+        );
+    },
+
+    showVehicleBindingDialog: function (routeId) {
+        var me = this;
+        var route = me.getRouteById(routeId);
+        if (!route) return;
+        var boundVehicles = me.getRouteVehicles(routeId);
+        me.createVehicleBindingWindow(route, boundVehicles);
+    },
+
+    createVehicleBindingWindow: function (route, boundVehicles) {
+        var me = this;
+        var pilotStore = Ext.create('Ext.data.Store', {
+            fields: ['id', 'name', 'number', 'group', 'online'],
+            data: me.state.pilotVehicles,
+            filters: [function (item) {
+                return !boundVehicles.some(function (bv) { return bv.vehicle_id === item.data.id; });
+            }]
+        });
+
+        var boundStore = Ext.create('Ext.data.Store', {
+            fields: ['id', 'vehicle_id', 'vehicle_number'],
+            data: boundVehicles.map(function (v) {
+                return { id: v.id, vehicle_id: v.vehicle_id, vehicle_number: v.vehicle_number };
+            })
+        });
+
+        var win = Ext.create('Ext.window.Window', {
+            title: l('Привязка ТС к маршруту') + ' - ' + route.name,
+            width: 800, height: 500, layout: 'border', modal: true,
+            cls: 'pt-vehicle-dialog',
+            items: [
+                {
+                    region: 'west', title: l('Доступные ТС (из PILOT)'), width: 380, split: true, layout: 'fit',
+                    items: [{
+                        xtype: 'grid', store: pilotStore,
+                        columns: [
+                            {
+                                text: l('ТС'), dataIndex: 'number', flex: 1,
+                                renderer: function (v, m, r) {
+                                    var online = r.get('online');
+                                    m.tdAttr = 'style="background-color:' + (online ? '#dcfce7' : '#fee2e2') + '"';
+                                    return v + (online ? ' <span style="color:green">●</span>' : ' <span style="color:red">●</span>');
+                                }
+                            },
+                            { text: l('Группа'), dataIndex: 'group', width: 150 }
+                        ],
+                        selModel: { selType: 'checkboxmodel' }
+                    }]
+                },
+                {
+                    region: 'center', title: l('Привязанные к маршруту'), layout: 'fit',
+                    items: [{
+                        xtype: 'grid', store: boundStore,
+                        columns: [
+                            { text: l('ТС'), dataIndex: 'vehicle_number', flex: 1 },
+                            { text: l('ID'), dataIndex: 'vehicle_id', width: 100 }
+                        ],
+                        tbar: [{
+                            text: l('Удалить'), iconCls: 'fa fa-trash',
+                            handler: function () {
+                                var grid = this.up('grid');
+                                var sel = grid.getSelectionModel().getSelection();
+                                if (sel.length > 0) {
+                                    Ext.each(sel, function (r) { me.unbindVehicle(route.id, r.get('vehicle_id')); });
+                                    boundStore.remove(sel);
+                                }
+                            }
+                        }]
+                    }]
+                }
+            ],
+            buttons: [
+                {
+                    text: l('Привязать выбранные'), iconCls: 'fa fa-link',
+                    handler: function () {
+                        var leftGrid = win.down('region[region=west] grid');
+                        var sel = leftGrid.getSelectionModel().getSelection();
+                        if (sel.length === 0) {
+                            Ext.Msg.alert(l('Внимание'), l('Выберите хотя бы одно ТС'));
+                            return;
+                        }
+                        Ext.each(sel, function (r) { me.bindVehicle(route.id, r.get('id'), r.get('number')); });
+                        setTimeout(function() {
+                            boundStore.reload();
+                            pilotStore.reload();
+                            leftGrid.getSelectionModel().deselectAll();
+                            if (me.state.selectedRoute) me.updateRouteVehiclesGrid(me.state.selectedRoute);
+                        }, 500);
+                    }
+                },
+                { text: l('Закрыть'), handler: function () { win.close(); } }
+            ]
+        });
+        win.show();
+    },
+
     // ==================== ROUTE EDITOR ====================
 
     enableRouteEditMode: function (routeId, direction) {
@@ -954,8 +1175,7 @@ Ext.define('Store.passenger_transit.Module', {
         me._routeEditClickHandler = function (e) {
             if (!me.state.routeEditMode) return;
             var point = {
-                lat: e.latlng.lat,
-                lon: e.latlng.lng,
+                lat: e.latlng.lat, lon: e.latlng.lng,
                 order_index: me.state.editingRoutePoints[me.state.editDirection || 'forward'].length
             };
             me.state.editingRoutePoints[me.state.editDirection || 'forward'].push(point);
@@ -963,8 +1183,7 @@ Ext.define('Store.passenger_transit.Module', {
             me.updateEditToolbarStats();
             Ext.toast({
                 html: l('Добавлена точка') + ' #' + point.order_index,
-                align: 'br',
-                timeout: 2000
+                align: 'br', timeout: 2000
             });
         };
 
@@ -980,8 +1199,7 @@ Ext.define('Store.passenger_transit.Module', {
         me.showRouteEditToolbar();
         Ext.toast({
             html: l('Режим рисования: кликайте для добавления точек. Правый клик - завершить.'),
-            align: 't',
-            timeout: 8000
+            align: 't', timeout: 8000
         });
     },
 
@@ -1100,320 +1318,30 @@ Ext.define('Store.passenger_transit.Module', {
         if (textItem) textItem.setText(l('Точек: ') + count);
     },
 
-    // ==================== VEHICLE BINDING UI ====================
-
-    showVehicleBindingDialog: function (routeId) {
+    saveRoutePoints: function (routeId, points, direction) {
         var me = this;
-        var route = me.getRouteById(routeId);
-        if (!route) return;
-        var boundVehicles = me.getRouteVehicles(routeId);
-        me.createVehicleBindingWindow(route, boundVehicles);
-    },
-
-    createVehicleBindingWindow: function (route, boundVehicles) {
-        var me = this;
-        var pilotStore = Ext.create('Ext.data.Store', {
-            fields: ['id', 'name', 'number', 'group', 'online'],
-            data: me.state.pilotVehicles,
-            filters: [function (item) {
-                return !boundVehicles.some(function (bv) { return bv.vehicle_id === item.data.id; });
-            }]
-        });
-
-        var boundStore = Ext.create('Ext.data.Store', {
-            fields: ['id', 'vehicle_id', 'vehicle_number'],
-            data: boundVehicles.map(function (v) {
-                return { id: v.id, vehicle_id: v.vehicle_id, vehicle_number: v.vehicle_number };
-            })
-        });
-
-        var win = Ext.create('Ext.window.Window', {
-            title: l('Привязка ТС к маршруту') + ' - ' + route.name,
-            width: 800, height: 500, layout: 'border', modal: true,
-            cls: 'pt-vehicle-dialog',
-            items: [
-                {
-                    region: 'west', title: l('Доступные ТС (из PILOT)'), width: 380, split: true, layout: 'fit',
-                    items: [{
-                        xtype: 'grid', store: pilotStore,
-                        columns: [
-                            {
-                                text: l('ТС'), dataIndex: 'number', flex: 1,
-                                renderer: function (v, m, r) {
-                                    var online = r.get('online');
-                                    m.tdAttr = 'style="background-color:' + (online ? '#dcfce7' : '#fee2e2') + '"';
-                                    return v + (online ? ' <span style="color:green">●</span>' : ' <span style="color:red">●</span>');
-                                }
-                            },
-                            { text: l('Группа'), dataIndex: 'group', width: 150 }
-                        ],
-                        selModel: { selType: 'checkboxmodel' },
-                        tbar: [{
-                            xtype: 'textfield', emptyText: l('Поиск...'), enableKeyEvents: true,
-                            listeners: {
-                                keyup: function (f) {
-                                    pilotStore.clearFilter();
-                                    pilotStore.filterBy(function (r) {
-                                        return r.get('number').toLowerCase().indexOf(f.getValue().toLowerCase()) !== -1;
-                                    });
-                                }
-                            }
-                        }]
-                    }]
-                },
-                {
-                    region: 'center', title: l('Привязанные к маршруту'), layout: 'fit',
-                    items: [{
-                        xtype: 'grid', store: boundStore,
-                        columns: [
-                            { text: l('ТС'), dataIndex: 'vehicle_number', flex: 1 },
-                            { text: l('ID'), dataIndex: 'vehicle_id', width: 100 }
-                        ],
-                        tbar: [{
-                            text: l('Удалить'), iconCls: 'fa fa-trash',
-                            handler: function () {
-                                var grid = this.up('grid');
-                                var sel = grid.getSelectionModel().getSelection();
-                                if (sel.length > 0) {
-                                    Ext.each(sel, function (r) { me.unbindVehicle(route.id, r.get('vehicle_id')); });
-                                    boundStore.remove(sel);
-                                    pilotStore.reload();
-                                }
-                            }
-                        }]
-                    }]
+        Ext.Ajax.request({
+            url: me.getBackendUrl('route-points'),
+            method: 'POST',
+            jsonData: { route_id: routeId, direction: direction, points: points },
+            success: function (resp) {
+                var data = Ext.decode(resp.responseText);
+                if (data.success) {
+                    Ext.toast({ html: l('Маршрут сохранен'), align: 't', timeout: 3000 });
+                    me.loadRoutes();
+                } else {
+                    Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось сохранить'));
                 }
-            ],
-            buttons: [
-                {
-                    text: l('Привязать выбранные'), iconCls: 'fa fa-link',
-                    handler: function () {
-                        var leftGrid = win.down('region[region=west] grid');
-                        var sel = leftGrid.getSelectionModel().getSelection();
-                        if (sel.length === 0) {
-                            Ext.Msg.alert(l('Внимание'), l('Выберите хотя бы одно ТС'));
-                            return;
-                        }
-                        Ext.each(sel, function (r) { me.bindVehicle(route.id, r.get('id'), r.get('number')); });
-                        setTimeout(function() {
-                            boundStore.reload();
-                            pilotStore.reload();
-                            leftGrid.getSelectionModel().deselectAll();
-                            // Обновляем грид ТС маршрута после привязки
-                            if (me.state.selectedRoute) me.updateRouteVehiclesGrid(me.state.selectedRoute);
-                        }, 500);
-                    }
-                },
-                { text: l('Закрыть'), handler: function () { win.close(); } }
-            ]
+            },
+            failure: function () {
+                Ext.Msg.alert(l('Ошибка'), l('Ошибка соединения с бэкендом'));
+            }
         });
-        win.show();
     },
-
-    // ==================== MAP FUNCTIONS ====================
 
     getPilotMap: function () {
         if (window.getActiveTabMapContainer) return getActiveTabMapContainer();
         return window.mapContainer || null;
-    },
-
-    drawRoute: function (routeId, forwardPoints, backwardPoints) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        this.clearRoute(routeId);
-
-        if (forwardPoints && forwardPoints.length > 1) {
-            var latlngs = forwardPoints.map(function (p) { return [p.lat, p.lon || p.lng]; });
-            var line = L.polyline(latlngs, { color: '#2563eb', weight: 4, opacity: 0.85 }).addTo(map.map);
-            this.state.mapLayers.routes[routeId + '_forward'] = line;
-        }
-        if (backwardPoints && backwardPoints.length > 1) {
-            var latlngs = backwardPoints.map(function (p) { return [p.lat, p.lon || p.lng]; });
-            var line = L.polyline(latlngs, { color: '#dc2626', weight: 4, opacity: 0.85, dashArray: '8, 6' }).addTo(map.map);
-            this.state.mapLayers.routes[routeId + '_backward'] = line;
-        }
-    },
-
-    drawStops: function (routeId, stops) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        this.clearStops(routeId);
-        this.state.stops[routeId] = stops;
-        var me = this;
-
-        stops.forEach(function (stop, index) {
-            var icon = L.divIcon({
-                className: 'pt-stop-marker',
-                html: '<div class="pt-stop-number">' + (index + 1) + '</div>',
-                iconSize: [28, 28], iconAnchor: [14, 14]
-            });
-            var marker = L.marker([stop.lat, stop.lon], { icon: icon, title: stop.name }).addTo(map.map);
-            marker.bindPopup('<b>' + Ext.String.htmlEncode(stop.name) + '</b><br/>' + l('Остановка') + ' #' + (index + 1));
-            if (!me.state.mapLayers.stops[routeId]) me.state.mapLayers.stops[routeId] = [];
-            me.state.mapLayers.stops[routeId].push(marker);
-        });
-    },
-
-    drawVehicles: function (routeId, vehicles) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        this.clearVehicles(routeId);
-        var me = this;
-
-        vehicles.forEach(function (veh) {
-            var icon = L.divIcon({
-                className: 'pt-vehicle-marker',
-                html: '<div class="pt-vehicle-icon"><i class="fa fa-bus"></i></div>' +
-                      '<div class="pt-vehicle-number">' + Ext.String.htmlEncode(veh.number || '') + '</div>',
-                iconSize: [40, 40], iconAnchor: [20, 20]
-            });
-            var marker = L.marker([veh.lat, veh.lon], { icon: icon, title: veh.number }).addTo(map.map);
-            marker.on('click', function () { me.selectVehicle(veh.id, routeId); });
-            if (!me.state.mapLayers.vehicles[routeId]) me.state.mapLayers.vehicles[routeId] = [];
-            me.state.mapLayers.vehicles[routeId].push(marker);
-        });
-    },
-
-    drawVehicleTrack: function (vehicleId, trackPoints) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        this.clearTrack(vehicleId);
-        var points = trackPoints.map(function (p) { return [p.lat, p.lon || p.lng]; });
-        if (points.length > 1) {
-            var line = L.polyline(points, { color: '#2563eb', weight: 5, opacity: 0.9 }).addTo(map.map);
-            this.state.mapLayers.tracks[vehicleId] = line;
-            map.map.fitBounds(line.getBounds(), { padding: [50, 50] });
-        }
-    },
-
-    clearRoute: function (routeId) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        ['forward', 'backward'].forEach(function (dir) {
-            var key = routeId + '_' + dir;
-            if (this.state.mapLayers.routes[key]) {
-                map.map.removeLayer(this.state.mapLayers.routes[key]);
-                delete this.state.mapLayers.routes[key];
-            }
-        }.bind(this));
-    },
-
-    clearStops: function (routeId) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        if (this.state.mapLayers.stops[routeId]) {
-            this.state.mapLayers.stops[routeId].forEach(function (m) { map.map.removeLayer(m); });
-            delete this.state.mapLayers.stops[routeId];
-        }
-    },
-
-    clearVehicles: function (routeId) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        if (this.state.mapLayers.vehicles[routeId]) {
-            this.state.mapLayers.vehicles[routeId].forEach(function (m) { map.map.removeLayer(m); });
-            delete this.state.mapLayers.vehicles[routeId];
-        }
-    },
-
-    clearTrack: function (vehicleId) {
-        var map = this.getPilotMap();
-        if (!map || !map.map) return;
-        if (this.state.mapLayers.tracks[vehicleId]) {
-            map.map.removeLayer(this.state.mapLayers.tracks[vehicleId]);
-            delete this.state.mapLayers.tracks[vehicleId];
-        }
-    },
-
-    // ==================== DATA LOADING & SELECTION ====================
-
-    selectRoute: function (routeId) {
-        var me = this;
-        me.state.selectedRoute = routeId;
-        var route = me.getRouteById(routeId);
-        if (!route) return;
-
-        me.drawRoute(routeId, route.forward_points, route.backward_points);
-        if (route.stops && route.stops.length > 0) me.drawStops(routeId, route.stops);
-
-        var boundVehicles = me.getRouteVehicles(routeId);
-        var enrichedVehicles = boundVehicles.map(function (v) {
-            var pilotVeh = me.state.pilotVehicles.find(function (pv) { return pv.id === v.vehicle_id; });
-            return Ext.apply({
-                lat: pilotVeh ? pilotVeh.lat : 0,
-                lon: pilotVeh ? pilotVeh.lon : 0,
-                number: v.vehicle_number || (pilotVeh ? pilotVeh.number : 'N/A')
-            }, v);
-        });
-        me.drawVehicles(routeId, enrichedVehicles);
-
-        // ========================================================================
-        // ОБНОВЛЯЕМ ГРИД ТС МАРШРУТА
-        // ========================================================================
-        me.updateRouteVehiclesGrid(routeId);
-    },
-
-    selectVehicle: function (vehicleId, routeId) {
-        var me = this;
-        me.state.selectedVehicle = vehicleId;
-        var trackInfo = me.getVehicleTrack(vehicleId, routeId);
-        me.drawVehicleTrack(vehicleId, trackInfo.track);
-        Ext.Msg.alert(
-            l('ТС') + ' ' + vehicleId,
-            l('Выполнено рейсов') + ': <b>' + (trackInfo.trips_count || 0) + '</b>'
-        );
-    },
-
-    enableEditMode: function () {
-        var me = this;
-        if (me.state.routeEditMode) {
-            Ext.Msg.alert(l('Внимание'), l('Сначала завершите редактирование маршрута'));
-            return;
-        }
-        if (!me.state.selectedRoute) {
-            Ext.Msg.alert(l('Внимание'), l('Сначала выберите маршрут'));
-            return;
-        }
-        me.state.editMode = true;
-        var map = me.getPilotMap();
-        if (!map || !map.map) return;
-
-        me._mapClickHandler = function (e) {
-            if (!me.state.editMode || !me.state.selectedRoute) return;
-            Ext.Msg.prompt(
-                l('Новая остановка'),
-                l('Название остановки') + ':',
-                function (btn, text) {
-                    if (btn === 'ok' && text) {
-                        me.addStop(me.state.selectedRoute, { name: text, lat: e.latlng.lat, lon: e.latlng.lng });
-                    }
-                },
-                this, false, ''
-            );
-        };
-        map.map.on('click', me._mapClickHandler);
-        Ext.toast({ html: l('Кликните по карте для добавления остановки'), align: 't', timeout: 5000 });
-    },
-
-    disableEditMode: function () {
-        var me = this;
-        me.state.editMode = false;
-        var map = me.getPilotMap();
-        if (map && map.map && me._mapClickHandler) map.map.off('click', me._mapClickHandler);
-    },
-
-    getRouteById: function (routeId) {
-        var found = null;
-        Ext.each(this.state.routes, function (r) {
-            if (r.id == routeId) { found = r; return false; }
-        });
-        return found;
-    },
-
-    refreshRouteTree: function () {
-        if (this.routeTree) {
-            this.routeTree.loadRoutes(this.state.routes);
-        }
     }
 });
 
@@ -1437,6 +1365,11 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
 
         me.tbar = [
             { text: l('Добавить'), iconCls: 'fa fa-plus', handler: me.onAddRoute, scope: me, tooltip: l('Создать маршрут') },
+            { text: l('Трасса'), iconCls: 'fa fa-pencil', handler: function() {
+                var rec = me.getSelectionModel().getSelection()[0];
+                if (rec && me.module) me.module.enableRouteEditMode(rec.data.route_id, 'forward');
+                else Ext.Msg.alert(l('Внимание'), l('Выберите маршрут'));
+            }, scope: me, tooltip: l('Нарисовать линию маршрута') },
             '-',
             { text: l('ТС'), iconCls: 'fa fa-link', handler: function() {
                 var rec = me.getSelectionModel().getSelection()[0];
@@ -1538,9 +1471,7 @@ Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
 
         me.columns = [
             {
-                text: l('Госномер'),
-                dataIndex: 'vehicle_number',
-                flex: 1.2,
+                text: l('Госномер'), dataIndex: 'vehicle_number', flex: 1.2,
                 renderer: function(value, meta, record) {
                     var online = record.get('online');
                     var color = online ? '#16a34a' : '#94a3b8';
@@ -1551,28 +1482,20 @@ Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
                 }
             },
             {
-                text: l('Направление'),
-                dataIndex: 'direction',
-                width: 70,
-                align: 'center',
-                sortable: true,
+                text: l('Направление'), dataIndex: 'direction', width: 70, align: 'center', sortable: true,
                 renderer: function(value) {
                     if (value === 'forward') {
-                        return '<div class="pt-direction-badge pt-direction-forward" title="' + l('Прямое направление') + '">' +
+                        return '<div class="pt-direction-badge pt-direction-forward" title="' + l('Прямое') + '">' +
                                '<i class="fa fa-long-arrow-right"></i></div>';
                     } else if (value === 'backward') {
-                        return '<div class="pt-direction-badge pt-direction-backward" title="' + l('Обратное направление') + '">' +
+                        return '<div class="pt-direction-badge pt-direction-backward" title="' + l('Обратное') + '">' +
                                '<i class="fa fa-long-arrow-left"></i></div>';
                     }
                     return '<span style="color:#94a3b8">—</span>';
                 }
             },
             {
-                text: l('Рейсов'),
-                dataIndex: 'trips_count',
-                width: 65,
-                align: 'center',
-                sortable: true,
+                text: l('Рейсов'), dataIndex: 'trips_count', width: 65, align: 'center', sortable: true,
                 renderer: function(value) {
                     var num = parseInt(value) || 0;
                     var color = num > 5 ? '#16a34a' : (num > 0 ? '#f59e0b' : '#cbd5e1');
@@ -1610,7 +1533,7 @@ Ext.define('Store.passenger_transit.view.RouteVehiclesGrid', {
 
 
 // ============================================================================
-// VIEW: StopsCatalogPanel
+// VIEW: StopsCatalogPanel (СПРАВОЧНИК ОСТАНОВОК)
 // ============================================================================
 Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
     extend: 'Ext.grid.Panel',
@@ -1672,9 +1595,7 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
 
         me.columns = [
             {
-                text: l('Название'),
-                dataIndex: 'name',
-                flex: 1.5,
+                text: l('Название'), dataIndex: 'name', flex: 1.5,
                 renderer: function(v, m, r) {
                     var id = r.get('identifier');
                     var idHtml = id ? '<div style="color:#94a3b8;font-size:10px;font-weight:400">ID: ' + Ext.String.htmlEncode(id) + '</div>' : '';
@@ -1683,24 +1604,29 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
                 }
             },
             {
-                text: 'RFID',
-                dataIndex: 'rfid_code',
-                width: 80,
-                align: 'center',
+                text: 'RFID', dataIndex: 'rfid_code', width: 70, align: 'center',
                 renderer: function(v) {
                     if (!v) return '<span style="color:#cbd5e1">—</span>';
                     return '<span style="color:#7c3aed;font-weight:600;font-size:11px" title="' + Ext.String.htmlEncode(v) + '">' +
-                           '<i class="fa fa-microchip"></i> ' + Ext.String.htmlEncode(v.substring(0, 8)) +
-                           (v.length > 8 ? '...' : '') + '</span>';
+                           '<i class="fa fa-microchip"></i> ' + Ext.String.htmlEncode(v.substring(0, 6)) +
+                           (v.length > 6 ? '..' : '') + '</span>';
                 }
             },
             {
-                text: l('R'),
-                dataIndex: 'radius',
-                width: 50,
-                align: 'center',
+                text: l('R'), dataIndex: 'radius', width: 50, align: 'center',
                 renderer: function(v) {
                     return '<span style="color:#64748b;font-size:11px">' + (v || 30) + '</span>';
+                }
+            },
+            {
+                text: '', dataIndex: 'id', width: 80, align: 'center', sortable: false, menuDisabled: true,
+                renderer: function(value) {
+                    return '<div class="pt-stop-actions-cell">' +
+                           '<button class="pt-btn-focus-stop" data-stop-id="' + value + '" title="' + l('Показать на карте') + '">' +
+                           '<i class="fa fa-crosshairs"></i></button>' +
+                           '<button class="pt-btn-edit-stop" data-stop-id="' + value + '" title="' + l('Редактировать (геозона)') + '">' +
+                           '<i class="fa fa-edit"></i></button>' +
+                           '</div>';
                 }
             }
         ];
@@ -1715,13 +1641,30 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
             itemclick: function(view, record) {
                 if (me.module) {
                     var stop = me.module.state.stopsCatalog.find(function(s) { return s.id === record.get('id'); });
-                    if (stop) me.module.showEditStop(stop);
+                    if (stop) me.module.focusOnStop(stop);
                 }
             },
-            itemdblclick: function(view, record) {
-                var map = me.module.getPilotMap();
-                if (map && map.map) {
-                    map.map.setView([record.get('lat'), record.get('lon')], 17);
+            cellclick: function(view, cell, cellIndex, record, row, rowIndex, e) {
+                var target = e.target;
+                if (!target) return;
+
+                var stopId = parseInt(target.getAttribute('data-stop-id') ||
+                                     (target.parentElement && target.parentElement.getAttribute('data-stop-id')));
+                if (!stopId) return;
+
+                var stop = me.module.state.stopsCatalog.find(function(s) { return s.id === stopId; });
+                if (!stop) return;
+
+                if (target.classList.contains('pt-btn-focus-stop') ||
+                    (target.parentElement && target.parentElement.classList.contains('pt-btn-focus-stop'))) {
+                    me.module.focusOnStop(stop);
+                    return;
+                }
+
+                if (target.classList.contains('pt-btn-edit-stop') ||
+                    (target.parentElement && target.parentElement.classList.contains('pt-btn-edit-stop'))) {
+                    me.module.editCatalogStop(stop);
+                    return;
                 }
             }
         };
@@ -1736,7 +1679,7 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
 
 
 // ============================================================================
-// VIEW: StopEditPanel
+// VIEW: StopEditPanel (ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ)
 // ============================================================================
 Ext.define('Store.passenger_transit.view.StopEditPanel', {
     extend: 'Ext.panel.Panel',
@@ -1774,68 +1717,46 @@ Ext.define('Store.passenger_transit.view.StopEditPanel', {
                 },
                 {
                     xtype: 'textfield',
-                    name: 'name',
-                    itemId: 'stopName',
+                    name: 'name', itemId: 'stopName',
                     fieldLabel: l('Название') + ':',
                     emptyText: l('Например: пл. Ленина'),
-                    allowBlank: false,
-                    minLength: 2,
-                    maxLength: 100
+                    allowBlank: false, minLength: 2, maxLength: 100
                 },
                 {
                     xtype: 'textfield',
-                    name: 'identifier',
-                    itemId: 'stopIdentifier',
+                    name: 'identifier', itemId: 'stopIdentifier',
                     fieldLabel: l('Идентификатор') + ':',
                     emptyText: l('Уникальный код остановки'),
                     maxLength: 50
                 },
                 {
                     xtype: 'textarea',
-                    name: 'description',
-                    itemId: 'stopDescription',
+                    name: 'description', itemId: 'stopDescription',
                     fieldLabel: l('Описание') + ':',
                     emptyText: l('Необязательное описание'),
-                    maxLength: 255,
-                    height: 55,
-                    grow: true,
-                    growMin: 40,
-                    growMax: 100
+                    maxLength: 255, height: 55,
+                    grow: true, growMin: 40, growMax: 100
                 },
                 {
                     xtype: 'fieldcontainer',
                     fieldLabel: l('Координаты') + ':',
                     layout: 'hbox',
                     defaults: {
-                        flex: 1,
-                        labelWidth: 25,
-                        decimalPrecision: 6,
-                        allowDecimals: true,
-                        allowBlank: false
+                        flex: 1, labelWidth: 25,
+                        decimalPrecision: 6, allowDecimals: true, allowBlank: false
                     },
                     items: [
                         {
-                            xtype: 'numberfield',
-                            name: 'lat',
-                            itemId: 'stopLat',
-                            fieldLabel: l('Шир'),
-                            value: null,
-                            minValue: -90,
-                            maxValue: 90,
-                            readOnly: true,
-                            cls: 'pt-readonly-field'
+                            xtype: 'numberfield', name: 'lat', itemId: 'stopLat',
+                            fieldLabel: l('Шир'), value: null,
+                            minValue: -90, maxValue: 90,
+                            readOnly: true, cls: 'pt-readonly-field'
                         },
                         {
-                            xtype: 'numberfield',
-                            name: 'lon',
-                            itemId: 'stopLon',
-                            fieldLabel: l('Дол'),
-                            value: null,
-                            margin: '0 0 0 6',
-                            minValue: -180,
-                            maxValue: 180,
-                            readOnly: true,
-                            cls: 'pt-readonly-field'
+                            xtype: 'numberfield', name: 'lon', itemId: 'stopLon',
+                            fieldLabel: l('Дол'), value: null,
+                            margin: '0 0 0 6', minValue: -180, maxValue: 180,
+                            readOnly: true, cls: 'pt-readonly-field'
                         }
                     ]
                 },
@@ -1843,17 +1764,13 @@ Ext.define('Store.passenger_transit.view.StopEditPanel', {
                     xtype: 'container',
                     cls: 'pt-coords-hint',
                     html: '<i class="fa fa-info-circle"></i> ' +
-                          l('Кликните по карте для указания координат')
+                          l('Перетаскивайте маркеры на карте для изменения координат и радиуса')
                 },
                 {
                     xtype: 'numberfield',
-                    name: 'radius',
-                    itemId: 'stopRadius',
+                    name: 'radius', itemId: 'stopRadius',
                     fieldLabel: l('Радиус (м)') + ':',
-                    value: 30,
-                    minValue: 5,
-                    maxValue: 5000,
-                    step: 5,
+                    value: 30, minValue: 5, maxValue: 5000, step: 5,
                     listeners: {
                         change: function(field, newValue) {
                             if (me.module && me.module.state.mapLayers.editingStopZone) {
@@ -1872,32 +1789,21 @@ Ext.define('Store.passenger_transit.view.StopEditPanel', {
                     labelWidth: 95,
                     items: [
                         {
-                            xtype: 'displayfield',
-                            itemId: 'rfidDisplay',
-                            flex: 1,
-                            cls: 'pt-rfid-display',
+                            xtype: 'displayfield', itemId: 'rfidDisplay',
+                            flex: 1, cls: 'pt-rfid-display',
                             value: '<span class="pt-rfid-empty">' + l('Не выбрана') + '</span>'
                         },
                         {
-                            xtype: 'button',
-                            itemId: 'rfidSelectBtn',
-                            iconCls: 'fa fa-microchip',
-                            cls: 'pt-btn-rfid-select',
+                            xtype: 'button', itemId: 'rfidSelectBtn',
+                            iconCls: 'fa fa-microchip', cls: 'pt-btn-rfid-select',
                             tooltip: l('Выбрать RFID метку'),
-                            handler: function() {
-                                me.onSelectRfidClick();
-                            }
+                            handler: function() { me.onSelectRfidClick(); }
                         },
                         {
-                            xtype: 'button',
-                            itemId: 'rfidClearBtn',
-                            iconCls: 'fa fa-times',
-                            cls: 'pt-btn-rfid-clear',
-                            tooltip: l('Очистить выбор'),
-                            hidden: true,
-                            handler: function() {
-                                me.clearRfidSelection();
-                            }
+                            xtype: 'button', itemId: 'rfidClearBtn',
+                            iconCls: 'fa fa-times', cls: 'pt-btn-rfid-clear',
+                            tooltip: l('Очистить выбор'), hidden: true,
+                            handler: function() { me.clearRfidSelection(); }
                         }
                     ]
                 },
@@ -1906,24 +1812,17 @@ Ext.define('Store.passenger_transit.view.StopEditPanel', {
                     cls: 'pt-stop-edit-actions',
                     layout: 'hbox',
                     margin: '12 0 0 0',
-                    defaults: {
-                        flex: 1,
-                        margin: '0 4 0 0'
-                    },
+                    defaults: { flex: 1, margin: '0 4 0 0' },
                     items: [
                         {
                             xtype: 'button',
-                            text: l('Сохранить'),
-                            iconCls: 'fa fa-check',
+                            text: l('Сохранить'), iconCls: 'fa fa-check',
                             cls: 'pt-btn-primary pt-btn-save',
-                            handler: function() {
-                                me.onSaveClick();
-                            }
+                            handler: function() { me.onSaveClick(); }
                         },
                         {
                             xtype: 'button',
-                            text: l('Отмена'),
-                            iconCls: 'fa fa-times',
+                            text: l('Отмена'), iconCls: 'fa fa-times',
                             cls: 'pt-btn-cancel',
                             handler: function() {
                                 if (me.module) me.module.cancelStopEdit();
@@ -2063,7 +1962,7 @@ Ext.define('Store.passenger_transit.view.StopEditPanel', {
         var lat = parseFloat(values.lat);
         var lon = parseFloat(values.lon);
         if (isNaN(lat) || isNaN(lon)) {
-            Ext.Msg.alert(l('Ошибка'), l('Укажите координаты, кликнув по карте'));
+            Ext.Msg.alert(l('Ошибка'), l('Укажите координаты'));
             return;
         }
 
@@ -2117,60 +2016,38 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
                 selModel: { selType: 'rowmodel', mode: 'SINGLE' },
                 columns: [
                     {
-                        text: l('Код метки'),
-                        dataIndex: 'code',
-                        flex: 1.2,
+                        text: l('Код метки'), dataIndex: 'code', flex: 1.2,
                         renderer: function(v) {
                             return '<span style="font-weight:700;color:#7c3aed;font-family:monospace">' +
                                    '<i class="fa fa-microchip" style="margin-right:4px"></i>' +
                                    Ext.String.htmlEncode(v) + '</span>';
                         }
                     },
+                    { text: l('Название'), dataIndex: 'name', flex: 1 },
                     {
-                        text: l('Название'),
-                        dataIndex: 'name',
-                        flex: 1
-                    },
-                    {
-                        text: l('Описание'),
-                        dataIndex: 'description',
-                        flex: 1.2,
+                        text: l('Описание'), dataIndex: 'description', flex: 1.2,
                         renderer: function(v) {
-                            return '<span style="color:#64748b;font-size:12px">' +
-                                   Ext.String.htmlEncode(v || '') + '</span>';
+                            return '<span style="color:#64748b;font-size:12px">' + Ext.String.htmlEncode(v || '') + '</span>';
                         }
                     }
                 ],
-                emptyText: '<div style="text-align:center;padding:30px;color:#94a3b8">' +
-                           '<i class="fa fa-microchip" style="font-size:32px"></i>' +
-                           '<div style="margin-top:8px">' + l('Справочник RFID меток пуст') + '</div>' +
-                           '</div>',
                 tbar: [
                     {
-                        xtype: 'textfield',
-                        itemId: 'searchField',
+                        xtype: 'textfield', itemId: 'searchField',
                         emptyText: l('Поиск по коду, названию...'),
-                        width: 220,
-                        enableKeyEvents: true,
+                        width: 220, enableKeyEvents: true,
                         listeners: {
-                            keyup: function(f) {
-                                me.filterTags(f.getValue());
-                            }
+                            keyup: function(f) { me.filterTags(f.getValue()); }
                         }
                     },
                     '->',
                     {
-                        text: l('Обновить'),
-                        iconCls: 'fa fa-refresh',
-                        handler: function() {
-                            me.refreshTags();
-                        }
+                        text: l('Обновить'), iconCls: 'fa fa-refresh',
+                        handler: function() { me.refreshTags(); }
                     }
                 ],
                 listeners: {
-                    select: function(grid, record) {
-                        me.selectedTag = record.data;
-                    }
+                    select: function(grid, record) { me.selectedTag = record.data; }
                 }
             },
             {
@@ -2181,32 +2058,24 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
                 title: l('Создать новую метку'),
                 titleCollapse: true,
                 bodyPadding: 10,
-                defaults: {
-                    anchor: '100%',
-                    labelWidth: 90
-                },
+                defaults: { anchor: '100%', labelWidth: 90 },
                 items: [
                     {
-                        xtype: 'textfield',
-                        itemId: 'newCode',
+                        xtype: 'textfield', itemId: 'newCode',
                         fieldLabel: l('Код') + ':',
                         emptyText: l('Уникальный код метки'),
                         allowBlank: false
                     },
                     {
-                        xtype: 'textfield',
-                        itemId: 'newName',
+                        xtype: 'textfield', itemId: 'newName',
                         fieldLabel: l('Название') + ':',
                         emptyText: l('Например: Метка автобуса №1')
                     },
                     {
                         xtype: 'button',
-                        text: l('Создать метку'),
-                        iconCls: 'fa fa-plus',
+                        text: l('Создать метку'), iconCls: 'fa fa-plus',
                         cls: 'pt-btn-primary',
-                        handler: function() {
-                            me.onCreateTagClick();
-                        }
+                        handler: function() { me.onCreateTagClick(); }
                     }
                 ]
             }
@@ -2214,9 +2083,7 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
 
         me.buttons = [
             {
-                text: l('Выбрать'),
-                iconCls: 'fa fa-check',
-                cls: 'pt-btn-primary',
+                text: l('Выбрать'), iconCls: 'fa fa-check', cls: 'pt-btn-primary',
                 handler: function() {
                     if (me.selectedTag) {
                         me.fireEvent('select', me, me.selectedTag);
@@ -2227,19 +2094,12 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
                 }
             },
             {
-                text: l('Без метки'),
-                iconCls: 'fa fa-ban',
-                handler: function() {
-                    me.fireEvent('clear', me);
-                    me.close();
-                }
+                text: l('Без метки'), iconCls: 'fa fa-ban',
+                handler: function() { me.fireEvent('clear', me); me.close(); }
             },
             {
-                text: l('Отмена'),
-                iconCls: 'fa fa-times',
-                handler: function() {
-                    me.close();
-                }
+                text: l('Отмена'), iconCls: 'fa fa-times',
+                handler: function() { me.close(); }
             }
         ];
 
@@ -2247,9 +2107,7 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
             me.on('afterrender', function() {
                 var grid = me.down('#tagsGrid');
                 var idx = me.tagStore.find('id', me.currentTagId);
-                if (idx !== -1) {
-                    grid.getSelectionModel().select(idx);
-                }
+                if (idx !== -1) grid.getSelectionModel().select(idx);
             });
         }
 
@@ -2303,5 +2161,120 @@ Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
 
         me.down('#newCode').setValue('');
         me.down('#newName').setValue('');
+    }
+});
+
+
+// ============================================================================
+// VIEW: RouteMemoPanel (МНЕМОСХЕМА)
+// ============================================================================
+Ext.define('Store.passenger_transit.view.RouteMemoPanel', {
+    extend: 'Ext.panel.Panel',
+    layout: 'fit',
+    cls: 'pt-memo-panel',
+
+    initComponent: function () {
+        var me = this;
+        me.tbar = [
+            { text: l('Прямой'), iconCls: 'fa fa-arrow-right', handler: function () { me.showDirection('forward'); }, scope: me },
+            { text: l('Обратный'), iconCls: 'fa fa-arrow-left', handler: function () { me.showDirection('backward'); }, scope: me }
+        ];
+        me.items = [{
+            xtype: 'panel',
+            itemId: 'memoContent',
+            autoScroll: true,
+            html: '<div class="pt-memo-empty">' + l('Выберите маршрут') + '</div>'
+        }];
+        me.callParent(arguments);
+    },
+
+    loadRoute: function (route) {
+        var me = this;
+        me.currentRoute = route;
+        me.currentDirection = 'forward';
+        me.down('#memoContent').update(me.renderMemo(route, 'forward'));
+    },
+
+    renderMemo: function (route, direction) {
+        if (!route || !route.stops || route.stops.length === 0) {
+            return '<div class="pt-memo-empty">' + l('Нет остановок') + '</div>';
+        }
+        var stops = route.stops;
+        var html = '<div class="pt-memo-route">';
+        html += '<div class="pt-memo-header">' + Ext.String.htmlEncode(route.name) + '</div>';
+        html += '<div class="pt-memo-stops">';
+        stops.forEach(function (stop, index) {
+            var isForward = direction === 'forward';
+            var cls = isForward ? 'pt-stop-forward' : 'pt-stop-backward';
+            var number = isForward ? (index + 1) : (stops.length - index);
+            html += '<div class="pt-memo-stop ' + cls + '" data-index="' + index + '">';
+            html += '<div class="pt-memo-stop-number">' + number + '</div>';
+            html += '<div class="pt-memo-stop-name">' + Ext.String.htmlEncode(stop.name) + '</div>';
+            html += '</div>';
+        });
+        html += '</div></div>';
+        return html;
+    },
+
+    highlightStop: function (index) {
+        var me = this;
+        var content = me.down('#memoContent');
+        if (!content) return;
+        var el = content.getEl();
+        if (el) {
+            el.query('.pt-memo-stop').forEach(function (node) {
+                Ext.fly(node).removeCls('pt-memo-stop-highlight');
+            });
+            var target = el.query('.pt-memo-stop[data-index="' + index + '"]')[0];
+            if (target) {
+                Ext.fly(target).addCls('pt-memo-stop-highlight');
+                target.scrollIntoView();
+            }
+        }
+    },
+
+    showDirection: function (direction) {
+        if (this.currentRoute) {
+            this.down('#memoContent').update(this.renderMemo(this.currentRoute, direction));
+            this.currentDirection = direction;
+        }
+    }
+});
+
+
+// ============================================================================
+// VIEW: TimelinePanel (ГРАФИК РЕЙСОВ)
+// ============================================================================
+Ext.define('Store.passenger_transit.view.TimelinePanel', {
+    extend: 'Ext.panel.Panel',
+    layout: 'fit',
+    cls: 'pt-timeline-panel',
+
+    initComponent: function () {
+        var me = this;
+        me.items = [{
+            xtype: 'panel',
+            itemId: 'chartContainer',
+            html: '<div id="pt-timeline-chart" style="width:100%;height:100%;"></div>'
+        }];
+        me.callParent(arguments);
+    },
+
+    renderChart: function (timelineData) {
+        if (!window.Highcharts) {
+            Ext.log('passenger_transit: Highcharts not available');
+            return;
+        }
+        var container = document.getElementById('pt-timeline-chart');
+        if (!container) return;
+        if (this.chart) this.chart.destroy();
+        this.chart = Highcharts.chart(container, {
+            chart: { type: 'column', backgroundColor: 'transparent' },
+            title: { text: l('Рейсы по времени') },
+            xAxis: { categories: timelineData.hours || [], title: { text: l('Время') } },
+            yAxis: { title: { text: l('Количество рейсов') }, min: 0 },
+            series: [{ name: l('Рейсы'), data: timelineData.trips || [], color: '#2563eb' }],
+            credits: { enabled: false }
+        });
     }
 });
