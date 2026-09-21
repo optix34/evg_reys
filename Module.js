@@ -1,6 +1,6 @@
 // passenger_transit/Module.js
 // PILOT Extension: Пассажирские перевозки
-// Справочник остановок + Маршруты
+// Справочник остановок + RFID метки + Маршруты
 
 Ext.define('Store.passenger_transit.Module', {
     extend: 'Ext.Component',
@@ -13,36 +13,27 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     state: {
-        // Текущая активная панель: 'routes' | 'stops'
-        currentPanel: 'routes',
-
-        // Справочник остановок
+        currentPanel: 'routes',   // 'routes' | 'stops' | 'stop-edit'
         stopsCatalog: [],
-
-        // Маршруты
+        rfidTags: [],             // НОВОЕ: справочник RFID
         routes: [],
         selectedRoute: null,
         selectedVehicle: null,
-
-        // Слои карты
         mapLayers: {
             routes: {},
-            stopsCatalog: {},     // геозоны справочника остановок
-            routeStops: {},       // остановки выбранного маршрута
+            stopsCatalog: {},
+            routeStops: {},
             vehicles: {},
             tracks: {},
             editingPolyline: null,
             editingPoints: [],
-            editingStopZone: null // редактируемая геозона
+            editingStopZone: null
         },
-
-        // Режимы
         editMode: false,
-        addStopMode: false,       // режим добавления новой остановки
+        addStopMode: false,
         routeEditMode: false,
         editDirection: 'forward',
-
-        // PILOT данные
+        editingStop: null,        // НОВОЕ: редактируемая остановка (null = создание)
         pilotVehicles: [],
         isTabActive: false
     },
@@ -77,18 +68,19 @@ Ext.define('Store.passenger_transit.Module', {
         }
 
         // ========================================================================
-        // СОЗДАЕМ ОБЕ ПАНЕЛИ (маршруты и остановки)
+        // СОЗДАЕМ ПАНЕЛИ
         // ========================================================================
         me.routeTree = Ext.create('Store.passenger_transit.view.RouteTree', { module: me });
         me.stopsCatalogPanel = Ext.create('Store.passenger_transit.view.StopsCatalogPanel', { module: me });
+        me.stopEditPanel = Ext.create('Store.passenger_transit.view.StopEditPanel', { module: me });
 
-        // Контейнер с переключением между панелями
+        // Контейнер с card-переключением
         me.leftContent = Ext.create('Ext.panel.Panel', {
             layout: 'card',
             border: false,
             bodyBorder: false,
             activeItem: 0,
-            items: [me.routeTree, me.stopsCatalogPanel]
+            items: [me.routeTree, me.stopsCatalogPanel, me.stopEditPanel]
         });
 
         // Тулбар-переключатель
@@ -130,7 +122,7 @@ Ext.define('Store.passenger_transit.Module', {
             iconCls: 'fa fa-bus',
             iconAlign: 'top',
             minimized: false,
-            width: 380,
+            width: 400,
             layout: 'fit',
             items: [me.navContainer]
         });
@@ -160,8 +152,8 @@ Ext.define('Store.passenger_transit.Module', {
                 });
             }
 
-            // Загружаем данные
             me.loadStopsCatalog();
+            me.loadRfidTags();
             me.loadRoutes();
             me.loadVehiclesFromPilot();
 
@@ -183,11 +175,12 @@ Ext.define('Store.passenger_transit.Module', {
 
         if (panelName === 'routes') {
             me.leftContent.getLayout().setActiveItem(0);
-            me.drawAllCatalogStops();
-        } else {
+            me.exitAddStopMode();
+        } else if (panelName === 'stops') {
             me.leftContent.getLayout().setActiveItem(1);
-            me.drawAllCatalogStops();
-            me.enterAddStopMode();
+            me.exitAddStopMode();
+        } else if (panelName === 'stop-edit') {
+            me.leftContent.getLayout().setActiveItem(2);
         }
     },
 
@@ -240,7 +233,35 @@ Ext.define('Store.passenger_transit.Module', {
         return vehicles;
     },
 
-    // ==================== СПРАВОЧНИК ОСТАНОВОК ====================
+    // ========================================================================
+    // RFID МЕТКИ (НОВОЕ)
+    // ========================================================================
+
+    loadRfidTags: function () {
+        var me = this;
+        Ext.Ajax.request({
+            url: me.getBackendUrl('rfid-tags'),
+            method: 'GET',
+            success: function (resp) {
+                var data = Ext.decode(resp.responseText);
+                if (data.success) {
+                    me.state.rfidTags = data.tags || [];
+                }
+            },
+            failure: function () {
+                Ext.log('passenger_transit: failed to load RFID tags');
+            }
+        });
+    },
+
+    getRfidTagById: function(tagId) {
+        if (!tagId) return null;
+        return this.state.rfidTags.find(function(t) { return t.id === tagId; }) || null;
+    },
+
+    // ========================================================================
+    // СПРАВОЧНИК ОСТАНОВОК
+    // ========================================================================
 
     loadStopsCatalog: function () {
         var me = this;
@@ -272,6 +293,7 @@ Ext.define('Store.passenger_transit.Module', {
                 if (data.success) {
                     Ext.toast({ html: l('Остановка добавлена в справочник'), align: 't', timeout: 2500 });
                     me.loadStopsCatalog();
+                    me.switchPanel('stops');
                 } else {
                     Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось добавить'));
                 }
@@ -293,6 +315,7 @@ Ext.define('Store.passenger_transit.Module', {
                 if (data.success) {
                     Ext.toast({ html: l('Остановка обновлена'), align: 't', timeout: 2000 });
                     me.loadStopsCatalog();
+                    me.switchPanel('stops');
                 } else {
                     Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось обновить'));
                 }
@@ -329,7 +352,7 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     // ========================================================================
-    // ОТОБРАЖЕНИЕ ГЕОЗОН ОСТАНОВОК НА КАРТЕ
+    // ОТОБРАЖЕНИЕ ГЕОЗОН НА КАРТЕ
     // ========================================================================
 
     drawAllCatalogStops: function() {
@@ -337,7 +360,6 @@ Ext.define('Store.passenger_transit.Module', {
         var map = me.getPilotMap();
         if (!map || !map.map) return;
 
-        // Очищаем старые геозоны
         me.clearAllCatalogStops();
 
         me.state.stopsCatalog.forEach(function(stop) {
@@ -350,7 +372,6 @@ Ext.define('Store.passenger_transit.Module', {
         var map = me.getPilotMap();
         if (!map || !map.map) return;
 
-        // Круг-геозона
         var circle = L.circle([stop.lat, stop.lon], {
             radius: stop.radius || 30,
             color: '#94a3b8',
@@ -360,13 +381,13 @@ Ext.define('Store.passenger_transit.Module', {
             className: 'pt-catalog-stop-zone'
         }).addTo(map.map);
 
-        // Подпись с названием
         var label = L.marker([stop.lat, stop.lon], {
             icon: L.divIcon({
                 className: 'pt-catalog-stop-label',
                 html: '<div class="pt-catalog-stop-label-inner">' +
                       '<i class="fa fa-map-marker"></i> ' +
                       '<span>' + Ext.String.htmlEncode(stop.name) + '</span>' +
+                      (stop.rfid_code ? ' <i class="fa fa-microchip pt-rfid-mini-icon" title="RFID: ' + Ext.String.htmlEncode(stop.rfid_code) + '"></i>' : '') +
                       '</div>',
                 iconSize: [0, 0],
                 iconAnchor: [0, -25]
@@ -374,22 +395,25 @@ Ext.define('Store.passenger_transit.Module', {
             interactive: false
         }).addTo(map.map);
 
-        // Popup при клике
-        circle.bindPopup(
-            '<div class="pt-stop-popup">' +
-            '<b>' + Ext.String.htmlEncode(stop.name) + '</b><br/>' +
-            '<small>' + l('Радиус') + ': ' + (stop.radius || 30) + ' м</small><br/>' +
-            '<small>' + stop.lat.toFixed(6) + ', ' + stop.lon.toFixed(6) + '</small>' +
-            '</div>'
-        );
+        var popupHtml = '<div class="pt-stop-popup">' +
+            '<b>' + Ext.String.htmlEncode(stop.name) + '</b>';
+        if (stop.identifier) {
+            popupHtml += '<br/><small><b>' + l('ID') + ':</b> ' + Ext.String.htmlEncode(stop.identifier) + '</small>';
+        }
+        popupHtml += '<br/><small>' + l('Радиус') + ': ' + (stop.radius || 30) + ' м</small>' +
+            '<br/><small>' + stop.lat.toFixed(6) + ', ' + stop.lon.toFixed(6) + '</small>';
+        if (stop.rfid_code) {
+            popupHtml += '<br/><small><i class="fa fa-microchip"></i> RFID: <b>' + Ext.String.htmlEncode(stop.rfid_code) + '</b></small>';
+        }
+        popupHtml += '</div>';
 
-        // Двойной клик — редактирование
+        circle.bindPopup(popupHtml);
+
         circle.on('dblclick', function(e) {
             L.DomEvent.stopPropagation(e);
-            me.showEditStopWindow(stop);
+            me.showEditStop(stop);
         });
 
-        // Сохраняем ссылки
         me.state.mapLayers.stopsCatalog[stop.id] = {
             circle: circle,
             label: label,
@@ -417,7 +441,7 @@ Ext.define('Store.passenger_transit.Module', {
     },
 
     // ========================================================================
-    // РЕЖИМ ДОБАВЛЕНИЯ НОВОЙ ОСТАНОВКИ
+    // РЕЖИМ ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ ОСТАНОВКИ
     // ========================================================================
 
     enterAddStopMode: function() {
@@ -425,22 +449,50 @@ Ext.define('Store.passenger_transit.Module', {
         if (me.state.addStopMode) return;
 
         me.state.addStopMode = true;
+        me.state.editingStop = null; // режим создания
+
+        // Переключаемся на панель редактирования
+        me.switchPanel('stop-edit');
+        me.stopEditPanel.resetForm();
+        me.stopEditPanel.setMode('create');
+
         var map = me.getPilotMap();
         if (!map || !map.map) return;
 
         me._addStopClickHandler = function(e) {
             if (!me.state.addStopMode) return;
-            me.showCreateStopWindow({ lat: e.latlng.lat, lon: e.latlng.lng });
+            // Обновляем координаты в форме
+            me.stopEditPanel.setCoords(e.latlng.lat, e.latlng.lng);
+
+            // Создаем предпросмотр геозоны, если её нет
+            if (!me.state.mapLayers.editingStopZone) {
+                me._createEditingZone(e.latlng.lat, e.latlng.lng, 30);
+            } else {
+                me.state.mapLayers.editingStopZone.circle.setLatLng([e.latlng.lat, e.latlng.lng]);
+                me._updateEditingZoneMarkers();
+            }
         };
 
         map.map.on('click', me._addStopClickHandler);
         map.map.getContainer().style.cursor = 'crosshair';
 
         Ext.toast({
-            html: l('Кликните по карте для создания новой остановки'),
+            html: l('Кликните по карте для указания координат остановки'),
             align: 't',
             timeout: 5000
         });
+    },
+
+    showEditStop: function(stop) {
+        var me = this;
+        me.state.editingStop = stop;
+        me.exitAddStopMode();
+
+        me.switchPanel('stop-edit');
+        me.stopEditPanel.setMode('edit');
+        me.stopEditPanel.loadStopData(stop);
+
+        me._createEditingZone(stop.lat, stop.lon, stop.radius || 30);
     },
 
     exitAddStopMode: function() {
@@ -453,22 +505,18 @@ Ext.define('Store.passenger_transit.Module', {
             }
             map.map.getContainer().style.cursor = '';
         }
+        me.removeEditingStopZone();
     },
 
-    // ========================================================================
-    // МОДАЛЬНЫЕ ОКНА
-    // ========================================================================
-
-    showCreateStopWindow: function(coords) {
+    _createEditingZone: function(lat, lon, radius) {
         var me = this;
-        me.exitAddStopMode();
-
-        // Временная геозона для предпросмотра
         var map = me.getPilotMap();
         if (!map || !map.map) return;
 
-        var previewCircle = L.circle([coords.lat, coords.lon], {
-            radius: 30,
+        me.removeEditingStopZone();
+
+        var previewCircle = L.circle([lat, lon], {
+            radius: radius,
             color: '#f59e0b',
             fillColor: '#fef3c7',
             fillOpacity: 0.4,
@@ -476,8 +524,7 @@ Ext.define('Store.passenger_transit.Module', {
             dashArray: '5, 5'
         }).addTo(map.map);
 
-        // Маркер центра (для перетаскивания)
-        var centerMarker = L.marker([coords.lat, coords.lon], {
+        var centerMarker = L.marker([lat, lon], {
             draggable: true,
             icon: L.divIcon({
                 className: 'pt-stop-edit-center',
@@ -487,99 +534,7 @@ Ext.define('Store.passenger_transit.Module', {
             })
         }).addTo(map.map);
 
-        // Маркер радиуса (на границе)
-        var radiusMarker = L.marker([coords.lat, coords.lon], {
-            draggable: true,
-            icon: L.divIcon({
-                className: 'pt-stop-edit-radius',
-                html: '<div class="pt-stop-edit-radius-inner"></div>',
-                iconSize: [16, 16],
-                iconAnchor: [8, 8]
-            })
-        }).addTo(map.map);
-
-        // Обновляем позицию маркера радиуса
-        function updateRadiusMarkerPosition() {
-            var c = previewCircle.getLatLng();
-            var r = previewCircle.getRadius();
-            var offset = r / 111000; // примерно в градусах
-            radiusMarker.setLatLng([c.lat, c.lng + offset]);
-        }
-        updateRadiusMarkerPosition();
-
-        // Drag центра
-        centerMarker.on('drag', function(e) {
-            var ll = e.target.getLatLng();
-            previewCircle.setLatLng(ll);
-            updateRadiusMarkerPosition();
-        });
-
-        // Drag радиуса
-        radiusMarker.on('drag', function(e) {
-            var center = previewCircle.getLatLng();
-            var edge = e.target.getLatLng();
-            var distance = center.distanceTo(edge);
-            previewCircle.setRadius(Math.max(5, distance));
-        });
-
-        me.state.mapLayers.editingStopZone = {
-            circle: previewCircle,
-            centerMarker: centerMarker,
-            radiusMarker: radiusMarker
-        };
-
-        var win = Ext.create('Store.passenger_transit.view.StopEditWindow', {
-            title: l('Новая остановка'),
-            mode: 'create',
-            coords: coords,
-            radius: 30,
-            listeners: {
-                save: function(w, data) {
-                    me.createStopInCatalog({
-                        name: data.name,
-                        lat: previewCircle.getLatLng().lat,
-                        lon: previewCircle.getLatLng().lng,
-                        radius: previewCircle.getRadius(),
-                        description: data.description
-                    });
-                    me.removeEditingStopZone();
-                },
-                cancel: function() {
-                    me.removeEditingStopZone();
-                },
-                beforeclose: function() {
-                    me.removeEditingStopZone();
-                }
-            }
-        });
-        win.show();
-    },
-
-    showEditStopWindow: function(stop) {
-        var me = this;
-        var map = me.getPilotMap();
-        if (!map || !map.map) return;
-
-        var previewCircle = L.circle([stop.lat, stop.lon], {
-            radius: stop.radius || 30,
-            color: '#f59e0b',
-            fillColor: '#fef3c7',
-            fillOpacity: 0.4,
-            weight: 2,
-            dashArray: '5, 5'
-        }).addTo(map.map);
-
-        var centerMarker = L.marker([stop.lat, stop.lon], {
-            draggable: true,
-            icon: L.divIcon({
-                className: 'pt-stop-edit-center',
-                html: '<div class="pt-stop-edit-center-inner"></div>',
-                iconSize: [20, 20],
-                iconAnchor: [10, 10]
-            })
-        }).addTo(map.map);
-
-        var radiusMarker = L.marker([stop.lat, stop.lon], {
+        var radiusMarker = L.marker([lat, lon], {
             draggable: true,
             icon: L.divIcon({
                 className: 'pt-stop-edit-radius',
@@ -601,6 +556,7 @@ Ext.define('Store.passenger_transit.Module', {
             var ll = e.target.getLatLng();
             previewCircle.setLatLng(ll);
             updateRadiusMarkerPosition();
+            me.stopEditPanel.setCoords(ll.lat, ll.lng);
         });
 
         radiusMarker.on('drag', function(e) {
@@ -608,56 +564,22 @@ Ext.define('Store.passenger_transit.Module', {
             var edge = e.target.getLatLng();
             var distance = center.distanceTo(edge);
             previewCircle.setRadius(Math.max(5, distance));
+            me.stopEditPanel.setRadius(Math.round(previewCircle.getRadius()));
         });
-
-        // Скрываем оригинальную геозону
-        if (me.state.mapLayers.stopsCatalog[stop.id]) {
-            me.state.mapLayers.stopsCatalog[stop.id].circle.setStyle({ opacity: 0, fillOpacity: 0 });
-            me.state.mapLayers.stopsCatalog[stop.id].label.setOpacity(0);
-        }
 
         me.state.mapLayers.editingStopZone = {
             circle: previewCircle,
             centerMarker: centerMarker,
             radiusMarker: radiusMarker,
-            originalStopId: stop.id
+            updateRadiusMarkerPosition: updateRadiusMarkerPosition
         };
+    },
 
-        var win = Ext.create('Store.passenger_transit.view.StopEditWindow', {
-            title: l('Редактирование остановки'),
-            mode: 'edit',
-            stopData: stop,
-            coords: { lat: stop.lat, lon: stop.lon },
-            radius: stop.radius || 30,
-            listeners: {
-                save: function(w, data) {
-                    me.updateStopInCatalog(stop.id, {
-                        name: data.name,
-                        lat: previewCircle.getLatLng().lat,
-                        lon: previewCircle.getLatLng().lng,
-                        radius: previewCircle.getRadius(),
-                        description: data.description
-                    });
-                    me.removeEditingStopZone();
-                },
-                cancel: function() {
-                    me.removeEditingStopZone();
-                    // Возвращаем оригинальную геозону
-                    if (me.state.mapLayers.stopsCatalog[stop.id]) {
-                        me.state.mapLayers.stopsCatalog[stop.id].circle.setStyle({ opacity: 1, fillOpacity: 0.3 });
-                        me.state.mapLayers.stopsCatalog[stop.id].label.setOpacity(1);
-                    }
-                },
-                beforeclose: function() {
-                    me.removeEditingStopZone();
-                    if (me.state.mapLayers.stopsCatalog[stop.id]) {
-                        me.state.mapLayers.stopsCatalog[stop.id].circle.setStyle({ opacity: 1, fillOpacity: 0.3 });
-                        me.state.mapLayers.stopsCatalog[stop.id].label.setOpacity(1);
-                    }
-                }
-            }
-        });
-        win.show();
+    _updateEditingZoneMarkers: function() {
+        var zone = this.state.mapLayers.editingStopZone;
+        if (zone && zone.updateRadiusMarkerPosition) {
+            zone.updateRadiusMarkerPosition();
+        }
     },
 
     removeEditingStopZone: function() {
@@ -671,6 +593,98 @@ Ext.define('Store.passenger_transit.Module', {
             if (zone.radiusMarker) map.map.removeLayer(zone.radiusMarker);
             me.state.mapLayers.editingStopZone = null;
         }
+    },
+
+    // ========================================================================
+    // СОХРАНЕНИЕ ОСТАНОВКИ ИЗ ПАНЕЛИ РЕДАКТИРОВАНИЯ
+    // ========================================================================
+
+    saveStopFromPanel: function(data) {
+        var me = this;
+        var zone = me.state.mapLayers.editingStopZone;
+
+        // Берем актуальные координаты и радиус с геозоны на карте
+        var lat = zone ? zone.circle.getLatLng().lat : data.lat;
+        var lon = zone ? zone.circle.getLatLng().lng : data.lon;
+        var radius = zone ? Math.round(zone.circle.getRadius()) : data.radius;
+
+        var stopData = {
+            name: data.name,
+            identifier: data.identifier || null,
+            description: data.description || null,
+            lat: lat,
+            lon: lon,
+            radius: radius,
+            rfid_tag_id: data.rfid_tag_id || null
+        };
+
+        if (me.state.editingStop) {
+            me.updateStopInCatalog(me.state.editingStop.id, stopData);
+        } else {
+            me.createStopInCatalog(stopData);
+        }
+
+        me.state.editingStop = null;
+        me.exitAddStopMode();
+    },
+
+    cancelStopEdit: function() {
+        var me = this;
+        me.state.editingStop = null;
+        me.exitAddStopMode();
+        me.switchPanel('stops');
+    },
+
+    // ========================================================================
+    // МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+    // ========================================================================
+
+    showRfidSelectWindow: function(currentTagId, callback) {
+        var me = this;
+
+        // Перезагружаем RFID метки перед открытием
+        Ext.Ajax.request({
+            url: me.getBackendUrl('rfid-tags'),
+            method: 'GET',
+            success: function (resp) {
+                var data = Ext.decode(resp.responseText);
+                if (data.success) {
+                    me.state.rfidTags = data.tags || [];
+                }
+
+                var win = Ext.create('Store.passenger_transit.view.RfidSelectWindow', {
+                    module: me,
+                    currentTagId: currentTagId,
+                    listeners: {
+                        select: function(w, tag) {
+                            if (callback) callback(tag);
+                        },
+                        clear: function() {
+                            if (callback) callback(null);
+                        },
+                        createTag: function(w, tagData) {
+                            Ext.Ajax.request({
+                                url: me.getBackendUrl('rfid-tags'),
+                                method: 'POST',
+                                jsonData: tagData,
+                                success: function (resp) {
+                                    var data = Ext.decode(resp.responseText);
+                                    if (data.success) {
+                                        Ext.toast({ html: l('RFID метка создана'), align: 't', timeout: 2000 });
+                                        me.loadRfidTags();
+                                        // Обновляем грид в окне выбора
+                                        w.refreshTags();
+                                    } else {
+                                        Ext.Msg.alert(l('Ошибка'), data.error || l('Не удалось создать'));
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+                win.show();
+            }
+        });
     },
 
     // ==================== МАРШРУТЫ ====================
@@ -713,13 +727,9 @@ Ext.define('Store.passenger_transit.Module', {
         var route = me.getRouteById(routeId);
         if (!route) return;
 
-        // Очищаем предыдущие слои маршрута
         me.clearRouteLayers(routeId);
-
-        // Рисуем полилинии
         me.drawRoute(routeId, route.forward_points, route.backward_points);
 
-        // Рисуем остановки маршрута (цветные, с нумерацией)
         if (route.stops && route.stops.length > 0) {
             me.drawRouteStops(routeId, route.stops);
         }
@@ -750,10 +760,12 @@ Ext.define('Store.passenger_transit.Module', {
                 })
             }).addTo(map.map);
 
-            label.bindPopup(
-                '<b>' + Ext.String.htmlEncode(stop.name) + '</b><br/>' +
-                '<small>' + (stop.direction === 'forward' ? l('Прямое') : l('Обратное')) + ' направление</small>'
-            );
+            var popupHtml = '<b>' + Ext.String.htmlEncode(stop.name) + '</b><br/>' +
+                '<small>' + (stop.direction === 'forward' ? l('Прямое') : l('Обратное')) + ' направление</small>';
+            if (stop.rfid_code) {
+                popupHtml += '<br/><small><i class="fa fa-microchip"></i> RFID: <b>' + Ext.String.htmlEncode(stop.rfid_code) + '</b></small>';
+            }
+            label.bindPopup(popupHtml);
 
             if (!me.state.mapLayers.routeStops[routeId]) {
                 me.state.mapLayers.routeStops[routeId] = [];
@@ -808,8 +820,6 @@ Ext.define('Store.passenger_transit.Module', {
         }
     },
 
-    // ==================== MAP HELPERS ====================
-
     getPilotMap: function () {
         if (window.getActiveTabMapContainer) return getActiveTabMapContainer();
         return window.mapContainer || null;
@@ -818,7 +828,7 @@ Ext.define('Store.passenger_transit.Module', {
 
 
 // ============================================================================
-// VIEW: RouteTree (ВЕРХНЯЯ ПАНЕЛЬ — МАРШРУТЫ)
+// VIEW: RouteTree
 // ============================================================================
 Ext.define('Store.passenger_transit.view.RouteTree', {
     extend: 'Ext.tree.Panel',
@@ -835,19 +845,12 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
         });
 
         me.tbar = [
-            { text: l('Добавить'), iconCls: 'fa fa-plus', handler: me.onAddRoute, scope: me, tooltip: l('Создать маршрут') },
-            '-',
-            { text: l('ТС'), iconCls: 'fa fa-link', handler: function() {
-                var rec = me.getSelectionModel().getSelection()[0];
-                if (rec && me.module) me.module.showVehicleBindingDialog(rec.data.route_id);
-                else Ext.Msg.alert(l('Внимание'), l('Выберите маршрут'));
-            }, scope: me, tooltip: l('Привязать ТС') }
+            { text: l('Добавить'), iconCls: 'fa fa-plus', handler: me.onAddRoute, scope: me, tooltip: l('Создать маршрут') }
         ];
 
         me.columns = [
             { xtype: 'treecolumn', text: l('Маршрут'), dataIndex: 'name', flex: 1 },
-            { text: l('Ост.'), dataIndex: 'stop_count', width: 45, align: 'center' },
-            { text: l('ТС'), dataIndex: 'vehicle_count', width: 45, align: 'center' }
+            { text: l('Ост.'), dataIndex: 'stop_count', width: 45, align: 'center' }
         ];
 
         me.listeners = { itemclick: me.onRouteClick, scope: me };
@@ -859,7 +862,6 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
         var children = routes.map(function (r) {
             return {
                 text: r.name, name: r.name,
-                vehicle_count: r.vehicle_count || 0,
                 stop_count: r.stop_count || 0,
                 route_id: r.id, leaf: true,
                 iconCls: 'fa fa-route'
@@ -913,7 +915,7 @@ Ext.define('Store.passenger_transit.view.RouteTree', {
 
 
 // ============================================================================
-// VIEW: StopsCatalogPanel (НИЖНЯЯ ПАНЕЛЬ — СПРАВОЧНИК ОСТАНОВОК)
+// VIEW: StopsCatalogPanel
 // ============================================================================
 Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
     extend: 'Ext.grid.Panel',
@@ -925,7 +927,7 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
         var me = this;
 
         me.store = Ext.create('Ext.data.Store', {
-            fields: ['id', 'name', 'lat', 'lon', 'radius', 'description']
+            fields: ['id', 'name', 'identifier', 'description', 'lat', 'lon', 'radius', 'rfid_tag_id', 'rfid_code', 'rfid_name']
         });
 
         me.tbar = [
@@ -936,7 +938,7 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
                 handler: function() {
                     if (me.module) me.module.enterAddStopMode();
                 },
-                tooltip: l('Кликните по карте для создания остановки')
+                tooltip: l('Создать новую остановку')
             },
             '-',
             {
@@ -963,7 +965,9 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
                         var val = f.getValue().toLowerCase();
                         if (val) {
                             me.store.filterBy(function(r) {
-                                return r.get('name').toLowerCase().indexOf(val) !== -1;
+                                return (r.get('name') || '').toLowerCase().indexOf(val) !== -1 ||
+                                       (r.get('identifier') || '').toLowerCase().indexOf(val) !== -1 ||
+                                       (r.get('rfid_code') || '').toLowerCase().indexOf(val) !== -1;
                             });
                         }
                     }
@@ -976,28 +980,32 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
                 text: l('Название'),
                 dataIndex: 'name',
                 flex: 1.5,
-                renderer: function(v) {
+                renderer: function(v, m, r) {
+                    var id = r.get('identifier');
+                    var idHtml = id ? '<div style="color:#94a3b8;font-size:10px;font-weight:400">ID: ' + Ext.String.htmlEncode(id) + '</div>' : '';
                     return '<span style="font-weight:600"><i class="fa fa-map-marker" style="color:#f59e0b;margin-right:4px"></i>' +
-                           Ext.String.htmlEncode(v) + '</span>';
+                           Ext.String.htmlEncode(v) + '</span>' + idHtml;
                 }
             },
             {
-                text: l('Радиус'),
-                dataIndex: 'radius',
-                width: 70,
+                text: 'RFID',
+                dataIndex: 'rfid_code',
+                width: 80,
                 align: 'center',
                 renderer: function(v) {
-                    return '<span style="color:#64748b">' + (v || 30) + ' м</span>';
+                    if (!v) return '<span style="color:#cbd5e1">—</span>';
+                    return '<span style="color:#7c3aed;font-weight:600;font-size:11px" title="' + Ext.String.htmlEncode(v) + '">' +
+                           '<i class="fa fa-microchip"></i> ' + Ext.String.htmlEncode(v.substring(0, 8)) +
+                           (v.length > 8 ? '...' : '') + '</span>';
                 }
             },
             {
-                text: l('Координаты'),
-                dataIndex: 'lat',
-                width: 130,
-                renderer: function(v, m, r) {
-                    return '<span style="color:#94a3b8;font-size:11px">' +
-                           r.get('lat').toFixed(4) + ', ' + r.get('lon').toFixed(4) +
-                           '</span>';
+                text: l('R'),
+                dataIndex: 'radius',
+                width: 50,
+                align: 'center',
+                renderer: function(v) {
+                    return '<span style="color:#64748b;font-size:11px">' + (v || 30) + '</span>';
                 }
             }
         ];
@@ -1012,11 +1020,10 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
             itemclick: function(view, record) {
                 if (me.module) {
                     var stop = me.module.state.stopsCatalog.find(function(s) { return s.id === record.get('id'); });
-                    if (stop) me.module.showEditStopWindow(stop);
+                    if (stop) me.module.showEditStop(stop);
                 }
             },
             itemdblclick: function(view, record) {
-                // Центрируем карту на остановке
                 var map = me.module.getPilotMap();
                 if (map && map.map) {
                     map.map.setView([record.get('lat'), record.get('lon')], 17);
@@ -1034,57 +1041,71 @@ Ext.define('Store.passenger_transit.view.StopsCatalogPanel', {
 
 
 // ============================================================================
-// VIEW: StopEditWindow (МОДАЛЬНОЕ ОКНО СОЗДАНИЯ/РЕДАКТИРОВАНИЯ ОСТАНОВКИ)
+// НОВОЕ: VIEW: StopEditPanel — ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
 // ============================================================================
-Ext.define('Store.passenger_transit.view.StopEditWindow', {
-    extend: 'Ext.window.Window',
-    alias: 'widget.pt-stopeditwindow',
-    cls: 'pt-stopedit-window',
-    modal: true,
-    width: 440,
-    closable: true,
-    resizable: false,
-    closeAction: 'destroy',
+Ext.define('Store.passenger_transit.view.StopEditPanel', {
+    extend: 'Ext.panel.Panel',
+    cls: 'pt-stop-edit-panel',
+    layout: 'fit',
+    autoScroll: true,
 
     initComponent: function () {
         var me = this;
-        var isEdit = me.mode === 'edit';
-        var stopData = me.stopData || {};
-        var coords = me.coords || { lat: 0, lon: 0 };
-        var radius = me.radius || 30;
 
-        me.title = (isEdit ? '<i class="fa fa-edit"></i> ' : '<i class="fa fa-plus"></i> ') +
-                   (isEdit ? l('Редактирование остановки') : l('Новая остановка'));
+        me.currentMode = 'create'; // 'create' | 'edit'
+        me.currentStopId = null;
+        me.selectedRfidTag = null;
 
         me.items = [{
             xtype: 'form',
             itemId: 'stopForm',
-            bodyPadding: 16,
+            bodyPadding: 12,
             border: false,
+            autoScroll: true,
             defaults: {
-                labelWidth: 110,
                 anchor: '100%',
-                msgTarget: 'side'
+                msgTarget: 'side',
+                labelWidth: 95
             },
             items: [
+                {
+                    xtype: 'container',
+                    cls: 'pt-stop-edit-header',
+                    itemId: 'headerContainer',
+                    html: '<div class="pt-stop-edit-header-inner">' +
+                          '<i class="fa fa-plus-circle"></i> ' +
+                          '<span>' + l('Новая остановка') + '</span>' +
+                          '</div>'
+                },
                 {
                     xtype: 'textfield',
                     name: 'name',
                     itemId: 'stopName',
                     fieldLabel: l('Название') + ':',
-                    value: stopData.name || '',
                     emptyText: l('Например: пл. Ленина'),
                     allowBlank: false,
                     minLength: 2,
-                    maxLength: 100,
-                    listeners: {
-                        afterrender: function(field) {
-                            setTimeout(function() { field.focus(true, 100); }, 100);
-                        },
-                        specialkey: function(field, e) {
-                            if (e.getKey() === e.ENTER) me.onSaveClick();
-                        }
-                    }
+                    maxLength: 100
+                },
+                {
+                    xtype: 'textfield',
+                    name: 'identifier',
+                    itemId: 'stopIdentifier',
+                    fieldLabel: l('Идентификатор') + ':',
+                    emptyText: l('Уникальный код остановки'),
+                    maxLength: 50
+                },
+                {
+                    xtype: 'textarea',
+                    name: 'description',
+                    itemId: 'stopDescription',
+                    fieldLabel: l('Описание') + ':',
+                    emptyText: l('Необязательное описание'),
+                    maxLength: 255,
+                    height: 55,
+                    grow: true,
+                    growMin: 40,
+                    growMax: 100
                 },
                 {
                     xtype: 'fieldcontainer',
@@ -1092,7 +1113,7 @@ Ext.define('Store.passenger_transit.view.StopEditWindow', {
                     layout: 'hbox',
                     defaults: {
                         flex: 1,
-                        labelWidth: 30,
+                        labelWidth: 25,
                         decimalPrecision: 6,
                         allowDecimals: true,
                         allowBlank: false
@@ -1103,90 +1124,511 @@ Ext.define('Store.passenger_transit.view.StopEditWindow', {
                             name: 'lat',
                             itemId: 'stopLat',
                             fieldLabel: l('Шир'),
-                            value: coords.lat,
+                            value: null,
                             minValue: -90,
-                            maxValue: 90
+                            maxValue: 90,
+                            readOnly: true,
+                            cls: 'pt-readonly-field'
                         },
                         {
                             xtype: 'numberfield',
                             name: 'lon',
                             itemId: 'stopLon',
                             fieldLabel: l('Дол'),
-                            value: coords.lon,
-                            margin: '0 0 0 8',
+                            value: null,
+                            margin: '0 0 0 6',
                             minValue: -180,
-                            maxValue: 180
+                            maxValue: 180,
+                            readOnly: true,
+                            cls: 'pt-readonly-field'
                         }
                     ]
                 },
                 {
+                    xtype: 'container',
+                    cls: 'pt-coords-hint',
+                    html: '<i class="fa fa-info-circle"></i> ' +
+                          l('Кликните по карте для указания координат')
+                },
+                {
                     xtype: 'numberfield',
                     name: 'radius',
+                    itemId: 'stopRadius',
                     fieldLabel: l('Радиус (м)') + ':',
-                    value: radius,
+                    value: 30,
                     minValue: 5,
                     maxValue: 5000,
-                    step: 5
+                    step: 5,
+                    listeners: {
+                        change: function(field, newValue) {
+                            if (me.module && me.module.state.mapLayers.editingStopZone) {
+                                me.module.state.mapLayers.editingStopZone.circle.setRadius(newValue);
+                                me.module._updateEditingZoneMarkers();
+                            }
+                        }
+                    }
                 },
-                {
-                    xtype: 'textarea',
-                    name: 'description',
-                    fieldLabel: l('Описание') + ':',
-                    value: stopData.description || '',
-                    emptyText: l('Необязательное описание'),
-                    maxLength: 255,
-                    height: 60,
-                    grow: true,
-                    growMin: 40,
-                    growMax: 120
-                },
+                // ========================================================================
+                // НОВОЕ: ПОЛЕ ВЫБОРА RFID МЕТКИ
+                // ========================================================================
                 {
                     xtype: 'container',
-                    cls: 'pt-stopedit-hint',
-                    html: '<i class="fa fa-info-circle"></i> ' +
-                          l('Перетаскивайте белый маркер для изменения центра, синий — для изменения радиуса.')
+                    cls: 'pt-rfid-selector',
+                    itemId: 'rfidSelector',
+                    layout: 'hbox',
+                    fieldLabel: l('RFID метка') + ':',
+                    labelWidth: 95,
+                    items: [
+                        {
+                            xtype: 'displayfield',
+                            itemId: 'rfidDisplay',
+                            flex: 1,
+                            cls: 'pt-rfid-display',
+                            value: '<span class="pt-rfid-empty">' + l('Не выбрана') + '</span>'
+                        },
+                        {
+                            xtype: 'button',
+                            itemId: 'rfidSelectBtn',
+                            iconCls: 'fa fa-microchip',
+                            cls: 'pt-btn-rfid-select',
+                            tooltip: l('Выбрать RFID метку'),
+                            handler: function() {
+                                me.onSelectRfidClick();
+                            }
+                        },
+                        {
+                            xtype: 'button',
+                            itemId: 'rfidClearBtn',
+                            iconCls: 'fa fa-times',
+                            cls: 'pt-btn-rfid-clear',
+                            tooltip: l('Очистить выбор'),
+                            hidden: true,
+                            handler: function() {
+                                me.clearRfidSelection();
+                            }
+                        }
+                    ]
+                },
+                // Кнопки действий
+                {
+                    xtype: 'container',
+                    cls: 'pt-stop-edit-actions',
+                    layout: 'hbox',
+                    margin: '12 0 0 0',
+                    defaults: {
+                        flex: 1,
+                        margin: '0 4 0 0'
+                    },
+                    items: [
+                        {
+                            xtype: 'button',
+                            text: l('Сохранить'),
+                            iconCls: 'fa fa-check',
+                            cls: 'pt-btn-primary pt-btn-save',
+                            handler: function() {
+                                me.onSaveClick();
+                            }
+                        },
+                        {
+                            xtype: 'button',
+                            text: l('Отмена'),
+                            iconCls: 'fa fa-times',
+                            cls: 'pt-btn-cancel',
+                            handler: function() {
+                                if (me.module) me.module.cancelStopEdit();
+                            }
+                        }
+                    ]
                 }
             ]
         }];
 
-        me.buttons = [
-            {
-                text: l('Сохранить'),
-                iconCls: 'fa fa-check',
-                cls: 'pt-btn-primary',
-                handler: me.onSaveClick,
-                scope: me
-            },
-            {
-                text: l('Отмена'),
-                iconCls: 'fa fa-times',
-                handler: function() {
-                    me.fireEvent('cancel', me);
-                    me.close();
-                }
-            }
-        ];
-
         me.callParent(arguments);
     },
 
-    onSaveClick: function () {
+    setMode: function(mode) {
+        var me = this;
+        me.currentMode = mode;
+        var header = me.down('#headerContainer');
+        if (header) {
+            var icon = mode === 'create' ? 'fa-plus-circle' : 'fa-edit';
+            var title = mode === 'create' ? l('Новая остановка') : l('Редактирование остановки');
+            header.update('<div class="pt-stop-edit-header-inner pt-mode-' + mode + '">' +
+                          '<i class="fa ' + icon + '"></i> ' +
+                          '<span>' + title + '</span>' +
+                          '</div>');
+        }
+    },
+
+    resetForm: function() {
+        var me = this;
+        var form = me.down('#stopForm');
+        if (form) {
+            form.getForm().reset();
+            me.down('#stopRadius').setValue(30);
+        }
+        me.clearRfidSelection();
+        me.currentStopId = null;
+    },
+
+    loadStopData: function(stop) {
+        var me = this;
+        var form = me.down('#stopForm');
+        if (form) {
+            form.getForm().setValues({
+                name: stop.name || '',
+                identifier: stop.identifier || '',
+                description: stop.description || '',
+                lat: stop.lat,
+                lon: stop.lon,
+                radius: stop.radius || 30
+            });
+        }
+        me.currentStopId = stop.id;
+
+        // Устанавливаем RFID метку
+        if (stop.rfid_tag_id) {
+            me.selectedRfidTag = {
+                id: stop.rfid_tag_id,
+                code: stop.rfid_code || '',
+                name: stop.rfid_name || ''
+            };
+            me.updateRfidDisplay();
+        } else {
+            me.clearRfidSelection();
+        }
+    },
+
+    setCoords: function(lat, lon) {
+        var me = this;
+        me.down('#stopLat').setValue(parseFloat(lat.toFixed(6)));
+        me.down('#stopLon').setValue(parseFloat(lon.toFixed(6)));
+    },
+
+    setRadius: function(radius) {
+        this.down('#stopRadius').setValue(radius);
+    },
+
+    // ========================================================================
+    // RFID СЕКЦИЯ
+    // ========================================================================
+
+    onSelectRfidClick: function() {
+        var me = this;
+        if (!me.module) return;
+
+        me.module.showRfidSelectWindow(
+            me.selectedRfidTag ? me.selectedRfidTag.id : null,
+            function(tag) {
+                if (tag) {
+                    me.selectedRfidTag = tag;
+                    me.updateRfidDisplay();
+                }
+            }
+        );
+    },
+
+    clearRfidSelection: function() {
+        var me = this;
+        me.selectedRfidTag = null;
+        me.updateRfidDisplay();
+    },
+
+    updateRfidDisplay: function() {
+        var me = this;
+        var display = me.down('#rfidDisplay');
+        var clearBtn = me.down('#rfidClearBtn');
+
+        if (!display) return;
+
+        if (me.selectedRfidTag) {
+            var tag = me.selectedRfidTag;
+            var namePart = tag.name ? ' — ' + Ext.String.htmlEncode(tag.name) : '';
+            display.setValue(
+                '<span class="pt-rfid-selected">' +
+                '<i class="fa fa-microchip"></i> ' +
+                '<b>' + Ext.String.htmlEncode(tag.code) + '</b>' +
+                namePart +
+                '</span>'
+            );
+            if (clearBtn) clearBtn.show();
+        } else {
+            display.setValue('<span class="pt-rfid-empty">' + l('Не выбрана') + '</span>');
+            if (clearBtn) clearBtn.hide();
+        }
+    },
+
+    // ========================================================================
+    // ДЕЙСТВИЯ
+    // ========================================================================
+
+    onSaveClick: function() {
         var me = this;
         var form = me.down('#stopForm').getForm();
+
         if (!form.isValid()) {
             Ext.toast({ html: l('Заполните все обязательные поля'), align: 't', timeout: 2500 });
             return;
         }
+
         var values = form.getValues();
         var name = String(values.name).trim();
         if (name.length < 2) {
             Ext.Msg.alert(l('Ошибка'), l('Название должно содержать минимум 2 символа'));
             return;
         }
-        me.fireEvent('save', me, {
+
+        var lat = parseFloat(values.lat);
+        var lon = parseFloat(values.lon);
+        if (isNaN(lat) || isNaN(lon)) {
+            Ext.Msg.alert(l('Ошибка'), l('Укажите координаты, кликнув по карте'));
+            return;
+        }
+
+        var data = {
             name: name,
-            description: values.description ? values.description.trim() : null
-        });
-        me.close();
+            identifier: values.identifier ? String(values.identifier).trim() : null,
+            description: values.description ? String(values.description).trim() : null,
+            lat: lat,
+            lon: lon,
+            radius: parseInt(values.radius) || 30,
+            rfid_tag_id: me.selectedRfidTag ? me.selectedRfidTag.id : null
+        };
+
+        if (me.module) {
+            me.module.saveStopFromPanel(data);
+        }
     }
 });
+
+
+// ============================================================================
+// НОВОЕ: VIEW: RfidSelectWindow — МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+// ============================================================================
+Ext.define('Store.passenger_transit.view.RfidSelectWindow', {
+    extend: 'Ext.window.Window',
+    alias: 'widget.pt-rfidselectwindow',
+    cls: 'pt-rfid-select-window',
+    modal: true,
+    width: 650,
+    height: 480,
+    layout: 'border',
+    closable: true,
+    resizable: true,
+    closeAction: 'destroy',
+    title: '<i class="fa fa-microchip"></i> ' + l('Выбор RFID метки'),
+
+    initComponent: function () {
+        var me = this;
+
+        me.tagStore = Ext.create('Ext.data.Store', {
+            fields: ['id', 'code', 'name', 'description'],
+            data: me.module ? me.module.state.rfidTags : []
+        });
+
+        me.items = [
+            // Список RFID меток
+            {
+                region: 'center',
+                xtype: 'grid',
+                itemId: 'tagsGrid',
+                store: me.tagStore,
+                selModel: { selType: 'rowmodel', mode: 'SINGLE' },
+                columns: [
+                    {
+                        text: l('Код метки'),
+                        dataIndex: 'code',
+                        flex: 1.2,
+                        renderer: function(v) {
+                            return '<span style="font-weight:700;color:#7c3aed;font-family:monospace">' +
+                                   '<i class="fa fa-microchip" style="margin-right:4px"></i>' +
+                                   Ext.String.htmlEncode(v) + '</span>';
+                        }
+                    },
+                    {
+                        text: l('Название'),
+                        dataIndex: 'name',
+                        flex: 1
+                    },
+                    {
+                        text: l('Описание'),
+                        dataIndex: 'description',
+                        flex: 1.2,
+                        renderer: function(v) {
+                            return '<span style="color:#64748b;font-size:12px">' +
+                                   Ext.String.htmlEncode(v || '') + '</span>';
+                        }
+                    }
+                ],
+                emptyText: '<div style="text-align:center;padding:30px;color:#94a3b8">' +
+                           '<i class="fa fa-microchip" style="font-size:32px"></i>' +
+                           '<div style="margin-top:8px">' + l('Справочник RFID меток пуст') + '</div>' +
+                           '</div>',
+                tbar: [
+                    {
+                        xtype: 'textfield',
+                        itemId: 'searchField',
+                        emptyText: l('Поиск по коду, названию...'),
+                        width: 220,
+                        enableKeyEvents: true,
+                        listeners: {
+                            keyup: function(f) {
+                                me.filterTags(f.getValue());
+                            }
+                        }
+                    },
+                    '->',
+                    {
+                        text: l('Обновить'),
+                        iconCls: 'fa fa-refresh',
+                        handler: function() {
+                            me.refreshTags();
+                        }
+                    }
+                ],
+                listeners: {
+                    select: function(grid, record) {
+                        me.selectedTag = record.data;
+                    }
+                }
+            },
+            // Панель создания новой метки
+            {
+                region: 'south',
+                height: 140,
+                split: true,
+                collapsible: true,
+                title: l('Создать новую метку'),
+                titleCollapse: true,
+                bodyPadding: 10,
+                defaults: {
+                    anchor: '100%',
+                    labelWidth: 90
+                },
+                items: [
+                    {
+                        xtype: 'textfield',
+                        itemId: 'newCode',
+                        fieldLabel: l('Код') + ':',
+                        emptyText: l('Уникальный код метки'),
+                        allowBlank: false
+                    },
+                    {
+                        xtype: 'textfield',
+                        itemId: 'newName',
+                        fieldLabel: l('Название') + ':',
+                        emptyText: l('Например: Метка автобуса №1')
+                    },
+                    {
+                        xtype: 'button',
+                        text: l('Создать метку'),
+                        iconCls: 'fa fa-plus',
+                        cls: 'pt-btn-primary',
+                        handler: function() {
+                            me.onCreateTagClick();
+                        }
+                    }
+                ]
+            }
+        ];
+
+        me.buttons = [
+            {
+                text: l('Выбрать'),
+                iconCls: 'fa fa-check',
+                cls: 'pt-btn-primary',
+                handler: function() {
+                    if (me.selectedTag) {
+                        me.fireEvent('select', me, me.selectedTag);
+                        me.close();
+                    } else {
+                        Ext.Msg.alert(l('Внимание'), l('Выберите метку из списка'));
+                    }
+                }
+            },
+            {
+                text: l('Без метки'),
+                iconCls: 'fa fa-ban',
+                handler: function() {
+                    me.fireEvent('clear', me);
+                    me.close();
+                }
+            },
+            {
+                text: l('Отмена'),
+                iconCls: 'fa fa-times',
+                handler: function() {
+                    me.close();
+                }
+            }
+        ];
+
+        // Если есть текущая метка — выделяем её
+        if (me.currentTagId) {
+            me.on('afterrender', function() {
+                var grid = me.down('#tagsGrid');
+                var idx = me.tagStore.find('id', me.currentTagId);
+                if (idx !== -1) {
+                    grid.getSelectionModel().select(idx);
+                }
+            });
+        }
+
+        me.callParent(arguments);
+    },
+
+    filterTags: function(searchText) {
+        var me = this;
+        me.tagStore.clearFilter();
+        if (searchText && searchText.trim()) {
+            var val = searchText.toLowerCase();
+            me.tagStore.filterBy(function(r) {
+                return (r.get('code') || '').toLowerCase().indexOf(val) !== -1 ||
+                       (r.get('name') || '').toLowerCase().indexOf(val) !== -1 ||
+                       (r.get('description') || '').toLowerCase().indexOf(val) !== -1;
+            });
+        }
+    },
+
+    refreshTags: function() {
+        var me = this;
+        if (me.module) {
+            Ext.Ajax.request({
+                url: me.module.getBackendUrl('rfid-tags'),
+                method: 'GET',
+                success: function (resp) {
+                    var data = Ext.decode(resp.responseText);
+                    if (data.success) {
+                        me.module.state.rfidTags = data.tags || [];
+                        me.tagStore.loadData(data.tags || []);
+                    }
+                }
+            });
+        }
+    },
+
+    onCreateTagClick: function() {
+        var me = this;
+        var code = me.down('#newCode').getValue();
+        var name = me.down('#newName').getValue();
+
+        if (!code || String(code).trim().length < 2) {
+            Ext.Msg.alert(l('Ошибка'), l('Укажите код метки (минимум 2 символа)'));
+            return;
+        }
+
+        me.fireEvent('createTag', me, {
+            code: String(code).trim(),
+            name: name ? String(name).trim() : null
+        });
+
+        // Очищаем форму
+        me.down('#newCode').setValue('');
+        me.down('#newName').setValue('');
+    }
+});
+
+
+// ============================================================================
+// VIEW: RouteTree (осталось без изменений)
+// ============================================================================
