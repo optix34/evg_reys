@@ -4,12 +4,11 @@
    Полная стилизация модуля:
    - Переключатель панелей (Маршруты / Остановки)
    - Дерево маршрутов + Грид ТС маршрута (левая панель)
-   - Справочник остановок с геозонами
+   - Справочник остановок (маркеры-позиции на карте)
    - Панель редактирования остановки
-   - RFID метки (выбор, создание)
-   - Модальные окна
+   - RFID метки (модальное окно выбора)
    - Геозоны и маркеры на карте
-   - Мнемосхема и график рейсов
+   - Мнемосхема и график рейсов (плавающие панели)
    ========================================================================== */
 
 /* ==========================================================================
@@ -367,7 +366,104 @@
 }
 
 /* ==========================================================================
-   7. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
+   7. МАРКЕРЫ-ПОЗИЦИИ ОСТАНОВОК СПРАВОЧНИКА (pin-иконки на карте)
+   ========================================================================== */
+.pt-catalog-stop-pin {
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease;
+}
+
+.pt-catalog-stop-pin:hover {
+    transform: scale(1.2);
+    z-index: 1000 !important;
+}
+
+.pt-catalog-stop-pin-inner {
+    width: 30px;
+    height: 42px;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* SVG-подобная форма маркера через clip-path */
+.pt-catalog-stop-pin-inner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 42px;
+    background: var(--pt-warning);
+    clip-path: path('M15 0 C6.716 0 0 6.716 0 15 c0 10.5 15 27 15 27 s15-16.5 15-27 C30 6.716 23.284 0 15 0 z');
+}
+
+.pt-catalog-stop-pin-inner .fa-map-marker {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+/* ==========================================================================
+   8. КНОПКИ ДЕЙСТВИЙ В СТРОКАХ ГРИДА ОСТАНОВОК
+   ========================================================================== */
+.pt-stop-actions-cell {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
+}
+
+.pt-btn-focus-stop,
+.pt-btn-edit-stop {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--pt-border);
+    background: var(--pt-bg);
+    color: var(--pt-text-muted);
+    cursor: pointer;
+    transition: var(--pt-transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    padding: 0;
+}
+
+.pt-btn-focus-stop:hover {
+    background: var(--pt-info-light);
+    border-color: var(--pt-info);
+    color: var(--pt-info);
+    transform: scale(1.1);
+}
+
+.pt-btn-edit-stop:hover {
+    background: var(--pt-warning-light);
+    border-color: var(--pt-warning);
+    color: var(--pt-warning);
+    transform: scale(1.1);
+}
+
+/* Подсветка кнопок при наведении на строку */
+.pt-stops-catalog-panel .pt-btn-focus-stop,
+.pt-stops-catalog-panel .pt-btn-edit-stop {
+    opacity: 0.6;
+}
+
+.pt-stops-catalog-panel .x-grid-item:hover .pt-btn-focus-stop,
+.pt-stops-catalog-panel .x-grid-item:hover .pt-btn-edit-stop {
+    opacity: 1;
+}
+
+/* ==========================================================================
+   9. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
    ========================================================================== */
 .pt-stop-edit-panel {
     background: var(--pt-bg);
@@ -449,7 +545,7 @@
 }
 
 /* ==========================================================================
-   8. СЕКЦИЯ RFID МЕТКИ
+   10. СЕКЦИЯ RFID МЕТКИ
    ========================================================================== */
 .pt-rfid-selector {
     margin-bottom: 12px;
@@ -532,7 +628,7 @@
 }
 
 /* ==========================================================================
-   9. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
+   11. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
    ========================================================================== */
 .pt-stop-edit-actions .pt-btn-save {
     background: var(--pt-success) !important;
@@ -565,7 +661,7 @@
 }
 
 /* ==========================================================================
-   10. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+   12. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
    ========================================================================== */
 .pt-rfid-select-window {
     border-radius: var(--pt-radius-lg) !important;
@@ -648,36 +744,55 @@
 }
 
 /* ==========================================================================
-   11. ГЕОЗОНЫ ОСТАНОВОК НА КАРТЕ
+   13. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
    ========================================================================== */
-
-/* Подпись остановки справочника */
-.pt-catalog-stop-label {
+.pt-stop-edit-center {
     background: transparent !important;
     border: none !important;
-    pointer-events: none !important;
+    cursor: move !important;
 }
 
-.pt-catalog-stop-label-inner {
-    background: rgba(255, 255, 255, 0.95);
-    color: var(--pt-text);
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-    box-shadow: var(--pt-shadow);
-    border: 1px solid var(--pt-border);
-    pointer-events: none;
-    display: inline-flex;
-    align-items: center;
+.pt-stop-edit-center-inner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--pt-warning);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: move;
+    transition: transform 0.15s ease;
 }
 
-.pt-catalog-stop-label-inner .fa-map-marker {
-    color: var(--pt-warning);
-    margin-right: 3px;
-    font-size: 10px;
+.pt-stop-edit-center-inner:hover {
+    transform: scale(1.25);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
 }
+
+.pt-stop-edit-radius {
+    background: transparent !important;
+    border: none !important;
+    cursor: ew-resize !important;
+}
+
+.pt-stop-edit-radius-inner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--pt-primary);
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: ew-resize;
+    transition: transform 0.15s ease;
+}
+
+.pt-stop-edit-radius-inner:hover {
+    transform: scale(1.35);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   14. ГЕОЗОНЫ ОСТАНОВОК МАРШРУТА НА КАРТЕ
+   ========================================================================== */
 
 /* Подпись остановки маршрута (с номером) */
 .pt-route-stop-label {
@@ -725,54 +840,7 @@
 }
 
 /* ==========================================================================
-   12. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
-   ========================================================================== */
-.pt-stop-edit-center {
-    background: transparent !important;
-    border: none !important;
-    cursor: move !important;
-}
-
-.pt-stop-edit-center-inner {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    border: 3px solid var(--pt-warning);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    cursor: move;
-    transition: transform 0.15s ease;
-}
-
-.pt-stop-edit-center-inner:hover {
-    transform: scale(1.25);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-}
-
-.pt-stop-edit-radius {
-    background: transparent !important;
-    border: none !important;
-    cursor: ew-resize !important;
-}
-
-.pt-stop-edit-radius-inner {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--pt-primary);
-    border: 2px solid #fff;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    cursor: ew-resize;
-    transition: transform 0.15s ease;
-}
-
-.pt-stop-edit-radius-inner:hover {
-    transform: scale(1.35);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-}
-
-/* ==========================================================================
-   13. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
+   15. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
    ========================================================================== */
 .pt-floating-memo-panel,
 .pt-floating-timeline-panel {
@@ -817,7 +885,7 @@
 }
 
 /* ==========================================================================
-   14. МНЕМОСХЕМА
+   16. МНЕМОСХЕМА
    ========================================================================== */
 .pt-memo-panel {
     background: var(--pt-bg);
@@ -956,7 +1024,7 @@
 }
 
 /* ==========================================================================
-   15. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
+   17. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
    ========================================================================== */
 .pt-timeline-panel {
     background: var(--pt-bg);
@@ -973,7 +1041,7 @@
 }
 
 /* ==========================================================================
-   16. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
+   18. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ МАРШРУТА
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -1003,7 +1071,7 @@
 }
 
 /* ==========================================================================
-   17. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
+   19. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
    ========================================================================== */
 .pt-vehicle-marker {
     background: transparent !important;
@@ -1066,7 +1134,7 @@
 }
 
 /* ==========================================================================
-   18. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   20. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -1117,7 +1185,7 @@
 }
 
 /* ==========================================================================
-   19. ДИАЛОГ ПРИВЯЗКИ ТС
+   21. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -1166,7 +1234,7 @@
 }
 
 /* ==========================================================================
-   20. КНОПКА В ХЕДЕРЕ PILOT
+   22. КНОПКА В ХЕДЕРЕ PILOT
    ========================================================================== */
 .passenger_transit-header-btn {
     background: transparent !important;
@@ -1187,7 +1255,7 @@
 }
 
 /* ==========================================================================
-   21. TOAST-УВЕДОМЛЕНИЯ
+   23. TOAST-УВЕДОМЛЕНИЯ
    ========================================================================== */
 .x-toast {
     border-radius: var(--pt-radius-md) !important;
@@ -1205,7 +1273,7 @@
 }
 
 /* ==========================================================================
-   22. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
+   24. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
    ========================================================================== */
 .x-message-box {
     border-radius: var(--pt-radius-md) !important;
@@ -1240,7 +1308,7 @@
 }
 
 /* ==========================================================================
-   23. ОБЩИЕ КНОПКИ
+   25. ОБЩИЕ КНОПКИ
    ========================================================================== */
 .pt-btn-primary {
     background: var(--pt-primary) !important;
@@ -1254,7 +1322,7 @@
 }
 
 /* ==========================================================================
-   24. СКРОЛЛБАРЫ
+   26. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
 .pt-route-tree ::-webkit-scrollbar,
@@ -1293,7 +1361,7 @@
 }
 
 /* ==========================================================================
-   25. АДАПТИВНОСТЬ
+   27. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -1350,7 +1418,7 @@
 }
 
 /* ==========================================================================
-   26. АНИМАЦИИ
+   28. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -1397,7 +1465,7 @@
 }
 
 /* ==========================================================================
-   27. УТИЛИТЫ
+   29. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -1416,7 +1484,7 @@
 .pt-text-rfid { color: var(--pt-rfid); }
 
 /* ==========================================================================
-   28. ПЕЧАТЬ
+   30. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
