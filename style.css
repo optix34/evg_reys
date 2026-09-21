@@ -4,9 +4,11 @@
    Полная стилизация модуля:
    - Переключатель панелей (Маршруты / Остановки)
    - Справочник остановок с геозонами
+   - Панель редактирования остановки (слева)
+   - RFID метки
+   - Модальное окно выбора RFID
    - Маршруты, мнемосхема, график рейсов
    - Грид ТС маршрута
-   - Модальные окна
    ========================================================================== */
 
 /* ==========================================================================
@@ -30,6 +32,11 @@
     --pt-danger-light: #fee2e2;
     --pt-info: #0ea5e9;
     --pt-info-light: #e0f2fe;
+    
+    /* RFID - фиолетовая тема */
+    --pt-rfid: #7c3aed;
+    --pt-rfid-light: #ede9fe;
+    --pt-rfid-hover: #6d28d9;
 
     /* Нейтральные цвета */
     --pt-bg: #ffffff;
@@ -133,7 +140,7 @@
 }
 
 /* ==========================================================================
-   4. ДЕРЕВО МАРШРУТОВ (ВЕРХНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   4. ДЕРЕВО МАРШРУТОВ
    ========================================================================== */
 .pt-route-tree {
     background: var(--pt-bg);
@@ -193,7 +200,7 @@
 }
 
 /* ==========================================================================
-   5. СПРАВОЧНИК ОСТАНОВОК (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   5. СПРАВОЧНИК ОСТАНОВОК
    ========================================================================== */
 .pt-stops-catalog-panel {
     background: var(--pt-bg);
@@ -263,7 +270,288 @@
 }
 
 /* ==========================================================================
-   6. ГЕОЗОНЫ ОСТАНОВОК НА КАРТЕ (СПРАВОЧНИК)
+   6. ПАНЕЛЬ РЕДАКТИРОВАНИЯ ОСТАНОВКИ (СЛЕВА)
+   ========================================================================== */
+.pt-stop-edit-panel {
+    background: var(--pt-bg);
+}
+
+.pt-stop-edit-panel .x-panel-body {
+    background: var(--pt-bg) !important;
+}
+
+.pt-stop-edit-panel .x-form-item-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 12px !important;
+}
+
+.pt-stop-edit-panel .x-form-text {
+    border-radius: var(--pt-radius-sm) !important;
+    border: 1px solid var(--pt-border) !important;
+    transition: var(--pt-transition-fast);
+    font-size: 13px !important;
+    padding: 5px 9px !important;
+}
+
+.pt-stop-edit-panel .x-form-text:focus {
+    border-color: var(--pt-primary) !important;
+    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
+    outline: none;
+}
+
+/* Заголовок панели */
+.pt-stop-edit-header {
+    margin-bottom: 12px;
+}
+
+.pt-stop-edit-header-inner {
+    padding: 10px 12px;
+    background: linear-gradient(135deg, var(--pt-warning) 0%, var(--pt-warning-hover) 100%);
+    color: #fff;
+    border-radius: var(--pt-radius-md);
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: var(--pt-shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pt-stop-edit-header-inner.pt-mode-edit {
+    background: linear-gradient(135deg, var(--pt-primary) 0%, var(--pt-primary-hover) 100%);
+}
+
+.pt-stop-edit-header-inner .fa {
+    font-size: 16px;
+}
+
+/* Подсказка для координат */
+.pt-coords-hint {
+    margin: 4px 0 12px 100px !important;
+    padding: 6px 10px !important;
+    background: var(--pt-info-light) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    border-left: 3px solid var(--pt-info) !important;
+    color: var(--pt-text-muted) !important;
+    font-size: 11px !important;
+}
+
+.pt-coords-hint .fa-info-circle {
+    color: var(--pt-info);
+    margin-right: 4px;
+}
+
+/* Поля только для чтения (координаты) */
+.pt-readonly-field .x-form-text {
+    background: var(--pt-bg-alt) !important;
+    color: var(--pt-text) !important;
+    font-family: 'Consolas', 'Monaco', monospace !important;
+    font-weight: 600 !important;
+    cursor: not-allowed !important;
+}
+
+/* ==========================================================================
+   7. СЕКЦИЯ RFID МЕТКИ
+   ========================================================================== */
+.pt-rfid-selector {
+    margin-bottom: 12px;
+}
+
+.pt-rfid-selector .x-form-item-label {
+    font-weight: 600 !important;
+    color: var(--pt-text) !important;
+    font-size: 12px !important;
+}
+
+.pt-rfid-display {
+    padding: 6px 10px !important;
+    background: var(--pt-bg-alt) !important;
+    border: 1px solid var(--pt-border) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    min-height: 28px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.pt-rfid-display .x-form-display-field {
+    width: 100%;
+}
+
+.pt-rfid-empty {
+    color: var(--pt-text-light);
+    font-style: italic;
+    font-size: 12px;
+}
+
+.pt-rfid-selected {
+    color: var(--pt-rfid);
+    font-weight: 600;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pt-rfid-selected .fa-microchip {
+    color: var(--pt-rfid);
+}
+
+.pt-btn-rfid-select {
+    background: var(--pt-rfid) !important;
+    border-color: var(--pt-rfid) !important;
+    color: #fff !important;
+    margin-left: 6px !important;
+    border-radius: var(--pt-radius-sm) !important;
+    transition: var(--pt-transition-fast) !important;
+}
+
+.pt-btn-rfid-select:hover {
+    background: var(--pt-rfid-hover) !important;
+    border-color: var(--pt-rfid-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--pt-shadow-sm);
+}
+
+.pt-btn-rfid-clear {
+    background: var(--pt-bg) !important;
+    border: 1px solid var(--pt-border) !important;
+    color: var(--pt-danger) !important;
+    margin-left: 4px !important;
+    border-radius: var(--pt-radius-sm) !important;
+}
+
+.pt-btn-rfid-clear:hover {
+    background: var(--pt-danger-light) !important;
+    border-color: var(--pt-danger) !important;
+}
+
+/* Мини-иконка RFID в подписях на карте */
+.pt-rfid-mini-icon {
+    color: var(--pt-rfid);
+    margin-left: 4px;
+    font-size: 10px;
+}
+
+/* ==========================================================================
+   8. КНОПКИ ДЕЙСТВИЙ В ПАНЕЛИ РЕДАКТИРОВАНИЯ
+   ========================================================================== */
+.pt-stop-edit-actions .pt-btn-save {
+    background: var(--pt-success) !important;
+    border-color: var(--pt-success) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    border-radius: var(--pt-radius-sm) !important;
+    padding: 8px 16px !important;
+    transition: var(--pt-transition-fast) !important;
+}
+
+.pt-stop-edit-actions .pt-btn-save:hover {
+    background: #15803d !important;
+    border-color: #15803d !important;
+    transform: translateY(-1px);
+    box-shadow: var(--pt-shadow);
+}
+
+.pt-stop-edit-actions .pt-btn-cancel {
+    background: var(--pt-bg) !important;
+    border: 1px solid var(--pt-border) !important;
+    color: var(--pt-text) !important;
+    border-radius: var(--pt-radius-sm) !important;
+    padding: 8px 16px !important;
+}
+
+.pt-stop-edit-actions .pt-btn-cancel:hover {
+    background: var(--pt-bg-hover) !important;
+    border-color: var(--pt-border-strong) !important;
+}
+
+/* ==========================================================================
+   9. МОДАЛЬНОЕ ОКНО ВЫБОРА RFID МЕТКИ
+   ========================================================================== */
+.pt-rfid-select-window {
+    border-radius: var(--pt-radius-lg) !important;
+    overflow: hidden;
+    box-shadow: var(--pt-shadow-lg) !important;
+}
+
+.pt-rfid-select-window .x-window-header {
+    background: linear-gradient(135deg, var(--pt-rfid) 0%, var(--pt-rfid-hover) 100%) !important;
+    color: #fff !important;
+    padding: 12px 16px !important;
+    border-bottom: none !important;
+}
+
+.pt-rfid-select-window .x-window-header-title-default {
+    color: #fff !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+.pt-rfid-select-window .x-window-header .fa-microchip {
+    margin-right: 6px;
+}
+
+.pt-rfid-select-window .x-window-body {
+    background: var(--pt-bg) !important;
+}
+
+.pt-rfid-select-window .x-grid-item {
+    transition: var(--pt-transition-fast);
+    border-bottom: 1px solid var(--pt-border);
+}
+
+.pt-rfid-select-window .x-grid-item:hover {
+    background: var(--pt-rfid-light) !important;
+    cursor: pointer;
+}
+
+.pt-rfid-select-window .x-grid-item-selected {
+    background: var(--pt-rfid-light) !important;
+    border-left: 3px solid var(--pt-rfid);
+}
+
+.pt-rfid-select-window .x-grid-header-ct {
+    background: var(--pt-bg-alt) !important;
+}
+
+.pt-rfid-select-window .x-column-header {
+    background: var(--pt-bg-alt) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--pt-text-muted) !important;
+    text-transform: uppercase;
+}
+
+.pt-rfid-select-window .x-toolbar {
+    background: var(--pt-bg-alt) !important;
+    padding: 6px 8px !important;
+}
+
+.pt-rfid-select-window .x-panel-header {
+    background: var(--pt-bg-alt) !important;
+    padding: 6px 10px !important;
+}
+
+.pt-rfid-select-window .x-panel-header-title-default {
+    color: var(--pt-text) !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+}
+
+.pt-rfid-select-window .x-form-text {
+    border-radius: var(--pt-radius-sm) !important;
+    border: 1px solid var(--pt-border) !important;
+}
+
+.pt-rfid-select-window .x-form-text:focus {
+    border-color: var(--pt-rfid) !important;
+    box-shadow: 0 0 0 3px var(--pt-rfid-light) !important;
+}
+
+/* ==========================================================================
+   10. ГЕОЗОНЫ ОСТАНОВОК НА КАРТЕ
    ========================================================================== */
 
 /* Подпись остановки справочника */
@@ -334,8 +622,13 @@
     margin-top: 2px;
 }
 
+.pt-stop-popup .fa-microchip {
+    color: var(--pt-rfid);
+    margin-right: 3px;
+}
+
 /* ==========================================================================
-   7. РЕДАКТИРОВАНИЕ ГЕОЗОНЫ (маркеры центра и радиуса)
+   11. МАРКЕРЫ РЕДАКТИРОВАНИЯ ГЕОЗОНЫ
    ========================================================================== */
 .pt-stop-edit-center {
     background: transparent !important;
@@ -382,114 +675,7 @@
 }
 
 /* ==========================================================================
-   8. МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ОСТАНОВКИ
-   ========================================================================== */
-.pt-stopedit-window {
-    border-radius: var(--pt-radius-lg) !important;
-    overflow: hidden;
-    box-shadow: var(--pt-shadow-lg) !important;
-    animation: pt-fade-in 0.25s ease-out;
-}
-
-.pt-stopedit-window .x-window-header {
-    background: linear-gradient(135deg, var(--pt-warning) 0%, var(--pt-warning-hover) 100%) !important;
-    color: #fff !important;
-    padding: 12px 16px !important;
-    border-bottom: none !important;
-}
-
-.pt-stopedit-window .x-window-header-title-default {
-    color: #fff !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-}
-
-.pt-stopedit-window .x-window-header .fa-map-marker,
-.pt-stopedit-window .x-window-header .fa-edit,
-.pt-stopedit-window .x-window-header .fa-plus {
-    margin-right: 6px;
-    color: #fff;
-}
-
-.pt-stopedit-window .x-window-body {
-    background: var(--pt-bg) !important;
-    padding: 0 !important;
-}
-
-.pt-stopedit-window .x-form-item-label {
-    font-weight: 600 !important;
-    color: var(--pt-text) !important;
-    font-size: 13px !important;
-}
-
-.pt-stopedit-window .x-form-text {
-    border-radius: var(--pt-radius-sm) !important;
-    border: 1px solid var(--pt-border) !important;
-    transition: var(--pt-transition-fast);
-    font-size: 13px !important;
-    padding: 6px 10px !important;
-}
-
-.pt-stopedit-window .x-form-text:focus {
-    border-color: var(--pt-primary) !important;
-    box-shadow: 0 0 0 3px var(--pt-primary-light) !important;
-    outline: none;
-}
-
-.pt-stopedit-window .x-form-invalid-field {
-    border-color: var(--pt-danger) !important;
-    background: var(--pt-danger-light) !important;
-}
-
-/* Подсказка под формой */
-.pt-stopedit-hint {
-    margin-top: 12px !important;
-    padding: 10px 12px !important;
-    background: var(--pt-info-light) !important;
-    border-radius: var(--pt-radius-sm) !important;
-    border-left: 3px solid var(--pt-info) !important;
-    color: var(--pt-text-muted) !important;
-    font-size: 12px !important;
-    line-height: 1.4 !important;
-}
-
-.pt-stopedit-hint .fa-info-circle {
-    color: var(--pt-info);
-    margin-right: 6px;
-}
-
-/* Кнопки окна */
-.pt-stopedit-window .x-btn {
-    border-radius: var(--pt-radius-sm) !important;
-    font-weight: 600 !important;
-    padding: 8px 18px !important;
-    transition: var(--pt-transition-fast);
-}
-
-.pt-stopedit-window .pt-btn-primary {
-    background: var(--pt-primary) !important;
-    border-color: var(--pt-primary) !important;
-    color: #fff !important;
-}
-
-.pt-stopedit-window .pt-btn-primary:hover {
-    background: var(--pt-primary-hover) !important;
-    transform: translateY(-1px);
-    box-shadow: var(--pt-shadow);
-}
-
-.pt-stopedit-window .x-toolbar {
-    background: var(--pt-bg-alt) !important;
-    border-top: 1px solid var(--pt-border) !important;
-    padding: 10px 12px !important;
-}
-
-.pt-stopedit-window .x-form-display-field {
-    font-family: inherit;
-}
-
-/* ==========================================================================
-   9. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
+   12. ПЛАВАЮЩИЕ ПАНЕЛИ (МНЕМОСХЕМА И ГРАФИК)
    ========================================================================== */
 .pt-floating-memo-panel,
 .pt-floating-timeline-panel {
@@ -534,7 +720,7 @@
 }
 
 /* ==========================================================================
-   10. МНЕМОСХЕМА
+   13. МНЕМОСХЕМА
    ========================================================================== */
 .pt-memo-panel {
     background: var(--pt-bg);
@@ -673,7 +859,7 @@
 }
 
 /* ==========================================================================
-   11. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
+   14. ГРАФИК РЕЙСОВ (ТАЙМЛАЙН)
    ========================================================================== */
 .pt-timeline-panel {
     background: var(--pt-bg);
@@ -690,7 +876,7 @@
 }
 
 /* ==========================================================================
-   12. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ МАРШРУТА
+   15. МАРКЕРЫ НА КАРТЕ - ОСТАНОВКИ
    ========================================================================== */
 .pt-stop-marker {
     background: transparent !important;
@@ -720,7 +906,7 @@
 }
 
 /* ==========================================================================
-   13. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
+   16. МАРКЕРЫ НА КАРТЕ - ТРАНСПОРТНЫЕ СРЕДСТВА
    ========================================================================== */
 .pt-vehicle-marker {
     background: transparent !important;
@@ -783,7 +969,7 @@
 }
 
 /* ==========================================================================
-   14. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
+   17. TOOLBAR РЕДАКТИРОВАНИЯ МАРШРУТА
    ========================================================================== */
 .pt-edit-toolbar {
     background: var(--pt-bg) !important;
@@ -834,7 +1020,7 @@
 }
 
 /* ==========================================================================
-   15. ДИАЛОГ ПРИВЯЗКИ ТС
+   18. ДИАЛОГ ПРИВЯЗКИ ТС
    ========================================================================== */
 .pt-vehicle-dialog {
     border-radius: var(--pt-radius-lg) !important;
@@ -883,7 +1069,7 @@
 }
 
 /* ==========================================================================
-   16. ГРИД ТС МАРШРУТА (НИЖНЯЯ ЧАСТЬ ЛЕВОЙ ПАНЕЛИ)
+   19. ГРИД ТС МАРШРУТА
    ========================================================================== */
 .pt-vehicles-grid {
     background: var(--pt-bg);
@@ -981,7 +1167,7 @@
 }
 
 /* ==========================================================================
-   17. КНОПКА В ХЕДЕРЕ PILOT
+   20. КНОПКА В ХЕДЕРЕ PILOT
    ========================================================================== */
 .passenger_transit-header-btn {
     background: transparent !important;
@@ -1002,7 +1188,7 @@
 }
 
 /* ==========================================================================
-   18. TOAST-УВЕДОМЛЕНИЯ
+   21. TOAST-УВЕДОМЛЕНИЯ
    ========================================================================== */
 .x-toast {
     border-radius: var(--pt-radius-md) !important;
@@ -1020,7 +1206,7 @@
 }
 
 /* ==========================================================================
-   19. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
+   22. EXT.MSG ПРОМПТЫ И ДИАЛОГИ
    ========================================================================== */
 .x-message-box {
     border-radius: var(--pt-radius-md) !important;
@@ -1055,12 +1241,27 @@
 }
 
 /* ==========================================================================
-   20. СКРОЛЛБАРЫ
+   23. ОБЩИЕ КНОПКИ
+   ========================================================================== */
+.pt-btn-primary {
+    background: var(--pt-primary) !important;
+    border-color: var(--pt-primary) !important;
+    color: #fff !important;
+}
+
+.pt-btn-primary:hover {
+    background: var(--pt-primary-hover) !important;
+    border-color: var(--pt-primary-hover) !important;
+}
+
+/* ==========================================================================
+   24. СКРОЛЛБАРЫ
    ========================================================================== */
 .pt-memo-panel ::-webkit-scrollbar,
 .pt-route-tree ::-webkit-scrollbar,
 .pt-vehicles-grid ::-webkit-scrollbar,
-.pt-stops-catalog-panel ::-webkit-scrollbar {
+.pt-stops-catalog-panel ::-webkit-scrollbar,
+.pt-stop-edit-panel ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
@@ -1068,7 +1269,8 @@
 .pt-memo-panel ::-webkit-scrollbar-track,
 .pt-route-tree ::-webkit-scrollbar-track,
 .pt-vehicles-grid ::-webkit-scrollbar-track,
-.pt-stops-catalog-panel ::-webkit-scrollbar-track {
+.pt-stops-catalog-panel ::-webkit-scrollbar-track,
+.pt-stop-edit-panel ::-webkit-scrollbar-track {
     background: var(--pt-bg-alt);
     border-radius: 4px;
 }
@@ -1076,7 +1278,8 @@
 .pt-memo-panel ::-webkit-scrollbar-thumb,
 .pt-route-tree ::-webkit-scrollbar-thumb,
 .pt-vehicles-grid ::-webkit-scrollbar-thumb,
-.pt-stops-catalog-panel ::-webkit-scrollbar-thumb {
+.pt-stops-catalog-panel ::-webkit-scrollbar-thumb,
+.pt-stop-edit-panel ::-webkit-scrollbar-thumb {
     background: var(--pt-border-strong);
     border-radius: 4px;
     transition: var(--pt-transition-fast);
@@ -1085,12 +1288,13 @@
 .pt-memo-panel ::-webkit-scrollbar-thumb:hover,
 .pt-route-tree ::-webkit-scrollbar-thumb:hover,
 .pt-vehicles-grid ::-webkit-scrollbar-thumb:hover,
-.pt-stops-catalog-panel ::-webkit-scrollbar-thumb:hover {
+.pt-stops-catalog-panel ::-webkit-scrollbar-thumb:hover,
+.pt-stop-edit-panel ::-webkit-scrollbar-thumb:hover {
     background: var(--pt-primary);
 }
 
 /* ==========================================================================
-   21. АДАПТИВНОСТЬ
+   25. АДАПТИВНОСТЬ
    ========================================================================== */
 @media (max-width: 1400px) {
     .pt-floating-memo-panel {
@@ -1140,14 +1344,14 @@
         padding: 4px 8px !important;
     }
 
-    .pt-stopedit-window {
+    .pt-rfid-select-window {
         width: 95vw !important;
-        max-width: 440px !important;
+        max-width: 650px !important;
     }
 }
 
 /* ==========================================================================
-   22. АНИМАЦИИ
+   26. АНИМАЦИИ
    ========================================================================== */
 @keyframes pt-fade-in {
     from { opacity: 0; transform: translateY(-10px); }
@@ -1183,6 +1387,10 @@
 .pt-memo-stop:nth-child(9) { animation-delay: 0.18s; }
 .pt-memo-stop:nth-child(10) { animation-delay: 0.20s; }
 
+.pt-stop-edit-panel {
+    animation: pt-fade-in 0.25s ease-out;
+}
+
 /* Анимация предпросмотрного маркера остановки */
 @keyframes pt-preview-pulse {
     0%, 100% { transform: scale(1); opacity: 0.8; }
@@ -1190,7 +1398,7 @@
 }
 
 /* ==========================================================================
-   23. УТИЛИТЫ
+   27. УТИЛИТЫ
    ========================================================================== */
 .pt-hidden {
     display: none !important;
@@ -1206,16 +1414,17 @@
 .pt-text-warning { color: var(--pt-warning); }
 .pt-text-danger { color: var(--pt-danger); }
 .pt-text-muted { color: var(--pt-text-muted); }
+.pt-text-rfid { color: var(--pt-rfid); }
 
 /* ==========================================================================
-   24. ПЕЧАТЬ
+   28. ПЕЧАТЬ
    ========================================================================== */
 @media print {
     .pt-floating-memo-panel,
     .pt-floating-timeline-panel,
     .pt-edit-toolbar,
     .passenger_transit-header-btn,
-    .pt-stopedit-window {
+    .pt-rfid-select-window {
         display: none !important;
     }
 
